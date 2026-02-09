@@ -24,6 +24,8 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `frontend/src/app/admin/login/page.tsx` - Admin login page.
 - `frontend/src/app/admin/dashboard/page.tsx` - Dashboard with stats cards.
 - `frontend/src/app/admin/paigham/page.tsx` - Paigham list with pagination, CRUD.
+- `frontend/src/app/admin/quizzes/page.tsx` - Quiz list grouped by Paigham, CRUD with search.
+- `frontend/components/QuizForm.tsx` - Modal form for creating/editing Quizzes with dynamic question editor (multiple choice, word search, translate, image).
 - API calls proxied to backend via Next.js rewrites (`/api/*` and `/uploads/*` -> `localhost:3001`).
 
 ## Tech Stack
