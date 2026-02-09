@@ -28,15 +28,20 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `frontend/components/QuizForm.tsx` - Modal form for creating/editing Quizzes with dynamic question editor (multiple choice, word search, translate, image).
 - `frontend/src/app/admin/submissions/page.tsx` - Submissions list with filters (Paigham/Quiz), pagination, CSV export.
 - `frontend/src/app/paigham/page.tsx` - Public bookshelf-style display of all Paigham magazines with PDF download.
-- `frontend/src/app/quiz/[quizId]/page.tsx` - Public quiz-taking page with OMJ card verification, dynamic question rendering, and submission.
+- `frontend/src/app/quiz/[quizId]/page.tsx` - Public quiz-taking page with OMJ card verification, dynamic question rendering (multiple choice, word search, translate, image, guess_who with blurred image reveal, text), countdown timer, required-field validation, and smooth submit states (loading/success/error/retry).
+- `frontend/components/Notification.tsx` - Reusable notification component (success/error/info) with auto-dismiss (3-5s), progress bar, NotificationContainer for stacking.
+- `frontend/components/LoadingSpinner.tsx` - Reusable loading spinner with sm/md/lg/xl sizes, fullPage mode, overlay mode, InlineLoading variant.
+- `frontend/services/api.ts` - Axios instance with JWT interceptor, base URL config.
+- `frontend/components/QueryProvider.tsx` - React Query provider wrapper.
 - API calls proxied to backend via Next.js rewrites (`/api/*` and `/uploads/*` -> `localhost:3001`).
 
 ## Tech Stack
 
 - Node.js 20, TypeScript
 - Express, Mongoose (MongoDB), multer (file uploads)
-- Next.js 16, React 19, Tailwind CSS v4, Axios
+- Next.js 16, React 19, Tailwind CSS v4, Axios, @tanstack/react-query
 - bcrypt, jsonwebtoken
+- Design: Corporate branding (#2F1268 primary purple, #F5F5F5 secondary), dark mode support
 
 ## Environment Variables
 
