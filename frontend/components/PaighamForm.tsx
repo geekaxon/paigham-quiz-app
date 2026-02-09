@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent, DragEvent } from "react";
 import axios from "axios";
 
 interface Paigham {
@@ -18,15 +18,24 @@ interface PaighamFormProps {
   onSaved: () => void;
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
   const [publicationDate, setPublicationDate] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfFileSize, setPdfFileSize] = useState<number | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,15 +45,26 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
       setPdfUrl(paigham.pdfUrl);
       setPublicationDate(paigham.publicationDate.split("T")[0]);
       const parts = paigham.pdfUrl.split("/");
-      setPdfFileName(parts[parts.length - 1]);
+      setPdfFileName(decodeURIComponent(parts[parts.length - 1]));
     }
   }, [paigham]);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const handleFileUpload = async (file: File) => {
+    if (file.type !== "application/pdf") {
+      setError("Only PDF files are allowed");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be under 10 MB");
+      return;
+    }
+
     setUploading(true);
+    setUploadProgress(0);
     setError("");
+
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -54,19 +74,50 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
+        onUploadProgress: (e) => {
+          if (e.total) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        },
       });
 
       if (res.data.success) {
         setPdfUrl(res.data.data.url);
         setPdfFileName(file.name);
+        setPdfFileSize(file.size);
       } else {
         setError(res.data.message || "Upload failed");
       }
     } catch {
-      setError("Failed to upload PDF");
+      setError("Failed to upload PDF. Please try again.");
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const clearFile = () => {
+    setPdfUrl("");
+    setPdfFileName("");
+    setPdfFileSize(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -121,14 +172,17 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
-              {error}
+            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-start gap-2" role="alert">
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
+              </svg>
+              <span>{error}</span>
             </div>
           )}
 
           <div>
             <label htmlFor="paigham-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Title
+              Title <span className="text-red-400">*</span>
             </label>
             <input
               id="paigham-title"
@@ -143,7 +197,7 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
 
           <div>
             <label htmlFor="paigham-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Description
+              Description <span className="text-red-400">*</span>
             </label>
             <textarea
               id="paigham-description"
@@ -158,12 +212,12 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              PDF File
+              PDF File <span className="text-red-400">*</span>
             </label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf"
+              accept=".pdf,application/pdf"
               className="hidden"
               aria-label="Upload PDF file"
               onChange={(e) => {
@@ -171,55 +225,111 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
                 if (file) handleFileUpload(file);
               }}
             />
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
-              role="button"
-              tabIndex={0}
-              aria-label="Click to upload PDF"
-              className="w-full border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center cursor-pointer hover:border-primary dark:hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-50/20 transition-all duration-200"
-            >
-              {uploading ? (
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary dark:border-t-primary-400" />
-                  Uploading...
+
+            {pdfUrl ? (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F0A1A] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-red-500 dark:text-red-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{pdfFileName || "PDF uploaded"}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {pdfFileSize ? formatFileSize(pdfFileSize) : "PDF"}
+                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <a
+                        href={pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 transition-colors duration-200"
+                        aria-label="Preview uploaded PDF"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Preview
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Replace
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearFile}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors duration-200"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              ) : pdfUrl ? (
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
-                  </svg>
-                  <span className="truncate max-w-xs">{pdfFileName || "PDF uploaded"}</span>
-                  <span className="text-xs text-gray-400 ml-1">(click to replace)</span>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  <svg className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16v-8m0 0l-3 3m3-3l3 3M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
-                  </svg>
-                  Click to upload PDF
-                </div>
-              )}
-            </div>
-            {pdfUrl && (
-              <a
-                href={pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-2 text-xs text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 font-medium transition-colors duration-200"
+              </div>
+            ) : (
+              <div
+                onClick={() => !uploading && fileInputRef.current?.click()}
+                onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !uploading) fileInputRef.current?.click(); }}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                role="button"
+                tabIndex={0}
+                aria-label="Click or drag to upload PDF"
+                className={`w-full border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-200 ${
+                  isDragOver
+                    ? "border-primary dark:border-primary-400 bg-primary-50 dark:bg-primary/10"
+                    : "border-gray-300 dark:border-gray-700 hover:border-primary dark:hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-50/20"
+                } ${uploading ? "pointer-events-none" : ""}`}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Preview PDF
-              </a>
+                {uploading ? (
+                  <div className="space-y-3">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-200 border-t-primary dark:border-primary-200 dark:border-t-primary-400 mx-auto" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Uploading...</p>
+                    <div className="w-full max-w-xs mx-auto">
+                      <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary dark:bg-primary-400 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                          role="progressbar"
+                          aria-valuenow={uploadProgress}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{uploadProgress}%</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <svg className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <span className="text-primary dark:text-primary-400">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PDF only, max 10 MB</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
           <div>
             <label htmlFor="publication-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Publication Date
+              Publication Date <span className="text-red-400">*</span>
             </label>
             <input
               id="publication-date"
@@ -242,9 +352,14 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
             <button
               type="submit"
               disabled={saving || uploading}
-              className="flex-1 rounded-lg bg-primary dark:bg-primary-400 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-light dark:hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+              className="flex-1 rounded-lg bg-primary dark:bg-primary-400 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-light dark:hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
             >
-              {saving ? "Saving..." : paigham ? "Update" : "Create"}
+              {saving ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Saving...
+                </>
+              ) : paigham ? "Update" : "Create"}
             </button>
           </div>
         </form>
