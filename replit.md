@@ -18,7 +18,7 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `src/modules/upload/` - PDF file upload endpoint using multer (10MB limit, PDF-only).
 
 ### Frontend (`frontend/`)
-- Next.js 16 + React 19 + Tailwind CSS v4 + Axios
+- Next.js 16 + React 19 + Tailwind CSS v4 + Axios + @tanstack/react-query
 - `frontend/components/Layout.tsx` - Admin layout with responsive sidebar, top nav, logout.
 - `frontend/components/PaighamForm.tsx` - Modal form for creating/editing Paighams with drag-and-drop PDF upload, progress bar, preview/replace/remove.
 - `frontend/src/app/admin/login/page.tsx` - Admin login page.
@@ -31,7 +31,7 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `frontend/src/app/quiz/[quizId]/page.tsx` - Public quiz-taking page with OMJ card verification, dynamic question rendering (multiple choice, word search, translate, image, guess_who with blurred image reveal, text), countdown timer, required-field validation, and smooth submit states (loading/success/error/retry).
 - `frontend/components/Notification.tsx` - Reusable notification component (success/error/info) with auto-dismiss (3-5s), progress bar, NotificationContainer for stacking.
 - `frontend/components/LoadingSpinner.tsx` - Reusable loading spinner with sm/md/lg/xl sizes, fullPage mode, overlay mode, InlineLoading variant.
-- `frontend/services/api.ts` - Axios instance with JWT interceptor, base URL config.
+- `frontend/services/api.ts` - Centralized API service layer with Axios instance, JWT interceptor, typed interfaces (Paigham, Quiz, Submission, Stats, Member), and exported API functions (adminApi, statsApi, paighamApi, quizApi, submissionApi, memberApi) used by all pages.
 - `frontend/components/QueryProvider.tsx` - React Query provider wrapper.
 - API calls proxied to backend via Next.js rewrites (`/api/*` and `/uploads/*` -> `localhost:3001`).
 

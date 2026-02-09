@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, FormEvent } from "react";
 import { useParams } from "next/navigation";
-import axios from "axios";
+import api from "../../../../services/api";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Notification, { NotificationType } from "../../../../components/Notification";
 
@@ -225,7 +225,7 @@ export default function QuizPage() {
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        const res = await axios.get(`/api/quiz/${quizId}`);
+        const res = await api.get(`/quiz/${quizId}`);
         if (res.data.success) {
           setQuiz(res.data.data);
         } else {
@@ -259,15 +259,16 @@ export default function QuizPage() {
     setMemberLoading(true);
     setMemberError("");
     try {
-      const res = await axios.get(`/api/member/${encodeURIComponent(omjCard.trim())}`);
+      const res = await api.get(`/member/${encodeURIComponent(omjCard.trim())}`);
       if (res.data.success) {
         setMember(res.data.data);
         setStep("quiz");
       } else {
         setMemberError("Member not found");
       }
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 404) {
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number } };
+      if (axiosErr.response?.status === 404) {
         setMemberError("Member not found. Please check your OMJ Card number.");
       } else {
         setMemberError("Failed to verify member");
@@ -340,7 +341,7 @@ export default function QuizPage() {
     setNotification(null);
 
     try {
-      const res = await axios.post("/api/submission", {
+      const res = await api.post("/submission", {
         quizId: quiz._id,
         omjCard: member.omjCard,
         answers: formattedAnswers,
@@ -352,11 +353,10 @@ export default function QuizPage() {
         setSubmitState("error");
         setNotification({ type: "error", message: res.data.message || "Submission failed" });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setSubmitState("error");
-      const message = axios.isAxiosError(err) && err.response?.data?.message
-        ? err.response.data.message
-        : "Failed to submit answers. Please try again.";
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const message = axiosErr.response?.data?.message || "Failed to submit answers. Please try again.";
       setNotification({ type: "error", message });
     } finally {
       setSubmitting(false);

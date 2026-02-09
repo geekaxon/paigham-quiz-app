@@ -1,31 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { submissionApi, paighamApi, type Submission, type Paigham } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Notification from "../../../../components/Notification";
-
-interface Paigham {
-  _id: string;
-  title: string;
-}
-
-interface PopulatedQuiz {
-  _id: string;
-  title: string;
-  paighamId: Paigham | null;
-}
-
-interface Submission {
-  _id: string;
-  quizId: PopulatedQuiz | string;
-  memberOmjCard: string;
-  memberSnapshot: Record<string, unknown>;
-  answers: Record<string, unknown>[];
-  submittedAt: string;
-}
 
 type SortField = "member" | "omjCard" | "quiz" | "paigham" | "answers" | "date";
 type SortDir = "asc" | "desc";
@@ -34,11 +15,7 @@ const PAGE_SIZE = 10;
 
 export default function SubmissionsPage() {
   const router = useRouter();
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [paighams, setPaighams] = useState<Paigham[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [filterPaigham, setFilterPaigham] = useState("");
   const [filterQuiz, setFilterQuiz] = useState("");
@@ -47,41 +24,60 @@ export default function SubmissionsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editOmjCard, setEditOmjCard] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-  const fetchData = useCallback(async () => {
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    setLoading(true);
-    try {
-      const [subRes, paighamRes] = await Promise.all([
-        axios.get("/api/submission", { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get("/api/paigham", { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (subRes.data.success) setSubmissions(subRes.data.data);
-      if (paighamRes.data.success) setPaighams(paighamRes.data.data);
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        localStorage.removeItem("token");
-        router.push("/admin/login");
-        return;
-      }
-      setError("Failed to load submissions");
-    } finally {
-      setLoading(false);
-    }
-  }, [token, router]);
+  const { data: submissions = [], isLoading: submissionsLoading } = useQuery({
+    queryKey: ["submissions"],
+    queryFn: async () => {
+      const res = await submissionApi.getAll();
+      if (!res.success) throw new Error("Failed to load submissions");
+      return res.data;
+    },
+    enabled: !!token,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: paighams = [] } = useQuery({
+    queryKey: ["paighams"],
+    queryFn: async () => {
+      const res = await paighamApi.getAll();
+      if (!res.success) throw new Error("Failed to load paighams");
+      return res.data;
+    },
+    enabled: !!token,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { memberOmjCard: string } }) =>
+      submissionApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      setSuccess("Submission updated");
+      setEditingId(null);
+    },
+    onError: () => setError("Failed to update submission"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: submissionApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      setSuccess("Submission deleted");
+    },
+    onError: () => setError("Failed to delete submission"),
+  });
+
+  if (!token) {
+    router.push("/admin/login");
+    return null;
+  }
+
+  const loading = submissionsLoading;
 
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -202,41 +198,12 @@ export default function SubmissionsPage() {
 
   const saveEdit = async () => {
     if (!editingId || !editOmjCard.trim()) return;
-    setSaving(true);
-    try {
-      await axios.put(
-        `/api/submission/${editingId}`,
-        { memberOmjCard: editOmjCard.trim() },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSubmissions((prev) =>
-        prev.map((s) =>
-          s._id === editingId ? { ...s, memberOmjCard: editOmjCard.trim() } : s
-        )
-      );
-      setSuccess("Submission updated");
-      setEditingId(null);
-    } catch {
-      setError("Failed to update submission");
-    } finally {
-      setSaving(false);
-    }
+    updateMutation.mutate({ id: editingId, data: { memberOmjCard: editOmjCard.trim() } });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this submission?")) return;
-    setDeleting(id);
-    try {
-      await axios.delete(`/api/submission/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSubmissions((prev) => prev.filter((s) => s._id !== id));
-      setSuccess("Submission deleted");
-    } catch {
-      setError("Failed to delete submission");
-    } finally {
-      setDeleting(null);
-    }
+    deleteMutation.mutate(id);
   };
 
   const formatDate = (dateStr: string) =>
@@ -374,7 +341,7 @@ export default function SubmissionsPage() {
               className="w-full sm:w-48 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1A1128] px-3.5 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent appearance-none pr-8 transition-all duration-200"
             >
               <option value="">All Paighams</option>
-              {paighams.map((p) => (
+              {paighams.map((p: Paigham) => (
                 <option key={p._id} value={p._id}>
                   {p.title}
                 </option>
@@ -448,7 +415,6 @@ export default function SubmissionsPage() {
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="hidden md:block bg-white dark:bg-[#1A1128] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
             <div className="overflow-x-auto" role="region" aria-label="Submissions table" tabIndex={0}>
               <table className="w-full" aria-label="Submissions">
@@ -500,11 +466,11 @@ export default function SubmissionsPage() {
                             />
                             <button
                               onClick={saveEdit}
-                              disabled={saving}
+                              disabled={updateMutation.isPending}
                               className="p-1 rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
                               aria-label="Save"
                             >
-                              {saving ? (
+                              {updateMutation.isPending ? (
                                 <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
                               ) : (
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -535,7 +501,7 @@ export default function SubmissionsPage() {
                         <span className="text-sm text-gray-500 dark:text-gray-400">{getPaighamTitle(s)}</span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center justify-center w-7 h-7 text-xs font-bold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                           {s.answers?.length || 0}
                         </span>
                       </td>
@@ -556,11 +522,11 @@ export default function SubmissionsPage() {
                           </button>
                           <button
                             onClick={() => handleDelete(s._id)}
-                            disabled={deleting === s._id}
+                            disabled={deleteMutation.isPending}
                             className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
                             aria-label={`Delete submission by ${getMemberName(s)}`}
                           >
-                            {deleting === s._id ? (
+                            {deleteMutation.isPending ? (
                               <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
                             ) : (
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -577,7 +543,6 @@ export default function SubmissionsPage() {
             </div>
           </div>
 
-          {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {paginated.map((s) => (
               <div
@@ -641,10 +606,10 @@ export default function SubmissionsPage() {
                         />
                         <button
                           onClick={saveEdit}
-                          disabled={saving}
+                          disabled={updateMutation.isPending}
                           className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                         >
-                          {saving ? "..." : "Save"}
+                          {updateMutation.isPending ? "..." : "Save"}
                         </button>
                         <button
                           onClick={cancelEdit}
@@ -666,10 +631,10 @@ export default function SubmissionsPage() {
                         </button>
                         <button
                           onClick={() => handleDelete(s._id)}
-                          disabled={deleting === s._id}
+                          disabled={deleteMutation.isPending}
                           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                         >
-                          {deleting === s._id ? (
+                          {deleteMutation.isPending ? (
                             <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
                           ) : (
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

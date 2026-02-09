@@ -1,16 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, FormEvent, DragEvent } from "react";
-import axios from "axios";
-
-interface Paigham {
-  _id: string;
-  title: string;
-  description: string;
-  pdfUrl: string;
-  publicationDate: string;
-  isArchived: boolean;
-}
+import api, { type Paigham } from "../services/api";
 
 interface PaighamFormProps {
   paigham: Paigham | null;
@@ -49,8 +40,6 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
     }
   }, [paigham]);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   const handleFileUpload = async (file: File) => {
     if (file.type !== "application/pdf") {
       setError("Only PDF files are allowed");
@@ -69,9 +58,8 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await axios.post("/api/upload/pdf", formData, {
+      const res = await api.post("/upload/pdf", formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
         onUploadProgress: (e) => {
@@ -134,13 +122,9 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
       const payload = { title, description, pdfUrl, publicationDate };
 
       if (paigham) {
-        await axios.put(`/api/paigham/${paigham._id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.put(`/paigham/${paigham._id}`, payload);
       } else {
-        await axios.post("/api/paigham", payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.post("/paigham", payload);
       }
 
       onSaved();

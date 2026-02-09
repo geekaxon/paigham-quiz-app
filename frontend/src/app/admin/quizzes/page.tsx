@@ -1,39 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { quizApi, paighamApi, type Quiz, type Paigham } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import QuizForm from "../../../../components/QuizForm";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Notification from "../../../../components/Notification";
-
-interface Paigham {
-  _id: string;
-  title: string;
-}
-
-interface QuizType {
-  _id: string;
-  name: string;
-  description: string;
-}
-
-interface Question {
-  type: string;
-  [key: string]: unknown;
-}
-
-interface Quiz {
-  _id: string;
-  paighamId: Paigham;
-  quizTypeId: QuizType;
-  title: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  questions: Question[];
-}
 
 interface GroupedQuizzes {
   paigham: Paigham;
@@ -42,60 +16,54 @@ interface GroupedQuizzes {
 
 export default function QuizzesPage() {
   const router = useRouter();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [paighams, setPaighams] = useState<Paigham[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState("");
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-  const fetchData = useCallback(async () => {
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    setLoading(true);
-    try {
-      const [quizRes, paighamRes] = await Promise.all([
-        axios.get("/api/quiz", { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get("/api/paigham", { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (quizRes.data.success) setQuizzes(quizRes.data.data);
-      if (paighamRes.data.success) setPaighams(paighamRes.data.data);
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        localStorage.removeItem("token");
-        router.push("/admin/login");
-        return;
-      }
-      setError("Failed to load quizzes");
-    } finally {
-      setLoading(false);
-    }
-  }, [token, router]);
+  const { data: quizzes = [], isLoading: quizzesLoading } = useQuery({
+    queryKey: ["quizzes"],
+    queryFn: async () => {
+      const res = await quizApi.getAll();
+      if (!res.success) throw new Error("Failed to load quizzes");
+      return res.data;
+    },
+    enabled: !!token,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: paighams = [] } = useQuery({
+    queryKey: ["paighams"],
+    queryFn: async () => {
+      const res = await paighamApi.getAll();
+      if (!res.success) throw new Error("Failed to load paighams");
+      return res.data;
+    },
+    enabled: !!token,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: quizApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+    },
+    onError: () => setError("Failed to delete quiz"),
+  });
+
+  if (!token) {
+    router.push("/admin/login");
+    return null;
+  }
+
+  const loading = quizzesLoading;
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this quiz?")) return;
-    setDeleting(id);
-    try {
-      await axios.delete(`/api/quiz/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchData();
-    } catch {
-      setError("Failed to delete quiz");
-    } finally {
-      setDeleting(null);
-    }
+    deleteMutation.mutate(id);
   };
 
   const toggleGroup = (paighamId: string) => {
@@ -198,11 +166,11 @@ export default function QuizzesPage() {
             </button>
             <button
               onClick={() => handleDelete(quiz._id)}
-              disabled={deleting === quiz._id}
+              disabled={deleteMutation.isPending}
               className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
               aria-label={`Delete ${quiz.title}`}
             >
-              {deleting === quiz._id ? (
+              {deleteMutation.isPending ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
               ) : (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -372,7 +340,8 @@ export default function QuizzesPage() {
           onSaved={() => {
             setShowForm(false);
             setEditingQuiz(null);
-            fetchData();
+            queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+            queryClient.invalidateQueries({ queryKey: ["stats"] });
           }}
         />
       )}

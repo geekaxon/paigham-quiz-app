@@ -1,41 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
-import LoadingSpinner from "../../../../components/LoadingSpinner";
-
-interface Paigham {
-  _id: string;
-  title: string;
-  description: string;
-  pdfUrl: string;
-  publicationDate: string;
-}
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { paighamApi, type Paigham } from "../../../services/api";
+import LoadingSpinner from "../../../components/LoadingSpinner";
 
 export default function PaighamPublicPage() {
-  const [paighams, setPaighams] = useState<Paigham[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data: rawPaighams = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ["paighams-public"],
+    queryFn: async () => {
+      const res = await paighamApi.getAll();
+      if (!res.success) throw new Error("Failed to load magazines");
+      return res.data;
+    },
+  });
 
-  useEffect(() => {
-    const fetchPaighams = async () => {
-      try {
-        const res = await axios.get("/api/paigham");
-        if (res.data.success) {
-          const sorted = [...res.data.data].sort(
-            (a: Paigham, b: Paigham) =>
-              new Date(b.publicationDate).getTime() - new Date(a.publicationDate).getTime()
-          );
-          setPaighams(sorted);
-        }
-      } catch {
-        setError("Failed to load magazines");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPaighams();
-  }, []);
+  const error = queryError?.message || "";
+
+  const paighams = useMemo(
+    () =>
+      [...rawPaighams].sort(
+        (a, b) => new Date(b.publicationDate).getTime() - new Date(a.publicationDate).getTime()
+      ),
+    [rawPaighams]
+  );
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("en-US", {

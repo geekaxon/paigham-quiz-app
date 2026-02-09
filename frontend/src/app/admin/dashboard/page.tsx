@@ -1,86 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
+import { statsApi, submissionApi, type Stats, type Submission } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Notification from "../../../../components/Notification";
 
-interface Stats {
-  paighamCount: number;
-  quizCount: number;
-  submissionCount: number;
-}
-
-interface Paigham {
-  _id: string;
-  title: string;
-}
-
-interface PopulatedQuiz {
-  _id: string;
-  title: string;
-  paighamId: Paigham | null;
-}
-
-interface Submission {
-  _id: string;
-  quizId: PopulatedQuiz | string;
-  memberOmjCard: string;
-  memberSnapshot: Record<string, unknown>;
-  answers: Record<string, unknown>[];
-  submittedAt: string;
-}
-
 export default function DashboardPage() {
   const router = useRouter();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentSubmissions, setRecentSubmissions] = useState<Submission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    Promise.all([
-      fetch("/api/stats", { headers: { Authorization: `Bearer ${token}` } }).then(async (r) => {
-        if (r.status === 401) {
-          localStorage.removeItem("token");
-          router.push("/admin/login");
-          return null;
-        }
-        return r.json();
-      }),
-      axios.get("/api/submission", { headers: { Authorization: `Bearer ${token}` } }),
-    ])
-      .then(([statsData, subRes]) => {
-        if (!statsData) return;
-        if (statsData.success) setStats(statsData.data);
-        else setError(statsData.message || "Failed to load stats");
+  const statsQuery = useQuery({
+    queryKey: ["stats"],
+    queryFn: async () => {
+      const res = await statsApi.getStats();
+      if (!res.success) throw new Error(res.message || "Failed to load stats");
+      return res.data;
+    },
+    enabled: !!token,
+  });
 
-        if (subRes.data.success) {
-          const sorted = [...subRes.data.data].sort(
-            (a: Submission, b: Submission) =>
-              new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-          );
-          setRecentSubmissions(sorted.slice(0, 5));
-        }
-      })
-      .catch((err) => {
-        if (axios.isAxiosError(err) && err.response?.status === 401) {
-          localStorage.removeItem("token");
-          router.push("/admin/login");
-          return;
-        }
-        setError("Failed to load dashboard data");
-      })
-      .finally(() => setLoading(false));
-  }, [router]);
+  const submissionsQuery = useQuery({
+    queryKey: ["submissions"],
+    queryFn: async () => {
+      const res = await submissionApi.getAll();
+      if (!res.success) throw new Error("Failed to load submissions");
+      return res.data;
+    },
+    enabled: !!token,
+  });
+
+  if (!token) {
+    router.push("/admin/login");
+    return null;
+  }
+
+  const recentSubmissions = useMemo(() => {
+    if (!submissionsQuery.data) return [];
+    return [...submissionsQuery.data]
+      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+      .slice(0, 5);
+  }, [submissionsQuery.data]);
+
+  const stats = statsQuery.data as Stats | undefined;
+  const loading = statsQuery.isLoading || submissionsQuery.isLoading;
+  const error = statsQuery.error?.message || submissionsQuery.error?.message || "";
 
   const getMemberName = (s: Submission) => {
     if (s.memberSnapshot && typeof s.memberSnapshot === "object") {
@@ -165,7 +132,7 @@ export default function DashboardPage() {
       {loading && <LoadingSpinner size="lg" label="Loading dashboard..." fullPage />}
 
       {error && (
-        <Notification type="error" message={error} onClose={() => setError("")} duration={0} />
+        <Notification type="error" message={error} onClose={() => {}} duration={0} />
       )}
 
       {stats && (
@@ -213,7 +180,6 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                {/* Desktop table */}
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full" aria-label="Recent submissions">
                     <thead>
@@ -248,7 +214,6 @@ export default function DashboardPage() {
                   </table>
                 </div>
 
-                {/* Mobile list */}
                 <div className="sm:hidden divide-y divide-gray-100 dark:divide-gray-800">
                   {recentSubmissions.map((s) => (
                     <div key={s._id} className="px-4 py-3 flex items-center justify-between">

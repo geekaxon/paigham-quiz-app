@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { paighamApi, type Paigham } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import PaighamForm from "../../../../components/PaighamForm";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Notification from "../../../../components/Notification";
-
-interface Paigham {
-  _id: string;
-  title: string;
-  description: string;
-  pdfUrl: string;
-  publicationDate: string;
-  isArchived: boolean;
-}
 
 type SortField = "title" | "date";
 type SortDir = "asc" | "desc";
@@ -24,61 +16,44 @@ const PAGE_SIZE = 8;
 
 export default function PaighamPage() {
   const router = useRouter();
-  const [paighams, setPaighams] = useState<Paigham[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingPaigham, setEditingPaigham] = useState<Paigham | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [error, setError] = useState("");
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-  const fetchPaighams = useCallback(async () => {
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await axios.get("/api/paigham", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.data.success) {
-        setPaighams(res.data.data);
-      }
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        localStorage.removeItem("token");
-        router.push("/admin/login");
-        return;
-      }
-      setError("Failed to load Paighams");
-    } finally {
-      setLoading(false);
-    }
-  }, [token, router]);
+  const { data: paighams = [], isLoading: loading } = useQuery({
+    queryKey: ["paighams"],
+    queryFn: async () => {
+      const res = await paighamApi.getAll();
+      if (!res.success) throw new Error("Failed to load Paighams");
+      return res.data;
+    },
+    enabled: !!token,
+  });
 
-  useEffect(() => {
-    fetchPaighams();
-  }, [fetchPaighams]);
+  const deleteMutation = useMutation({
+    mutationFn: paighamApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["paighams"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+    },
+    onError: () => setError("Failed to delete Paigham"),
+  });
+
+  if (!token) {
+    router.push("/admin/login");
+    return null;
+  }
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this Paigham?")) return;
-    setDeleting(id);
-    try {
-      await axios.delete(`/api/paigham/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchPaighams();
-    } catch {
-      setError("Failed to delete Paigham");
-    } finally {
-      setDeleting(null);
-    }
+    deleteMutation.mutate(id);
   };
 
   const filtered = useMemo(() => {
@@ -222,7 +197,6 @@ export default function PaighamPage() {
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="hidden md:block bg-white dark:bg-[#1A1128] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
             <div className="overflow-x-auto" role="region" aria-label="Paighams table" tabIndex={0}>
               <table className="w-full" aria-label="Paighams">
@@ -303,11 +277,11 @@ export default function PaighamPage() {
                           </button>
                           <button
                             onClick={() => handleDelete(p._id)}
-                            disabled={deleting === p._id}
+                            disabled={deleteMutation.isPending}
                             className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
                             aria-label={`Delete ${p.title}`}
                           >
-                            {deleting === p._id ? (
+                            {deleteMutation.isPending ? (
                               <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
                             ) : (
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -324,7 +298,6 @@ export default function PaighamPage() {
             </div>
           </div>
 
-          {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {paginatedPaighams.map((p) => (
               <div
@@ -367,11 +340,11 @@ export default function PaighamPage() {
                   </button>
                   <button
                     onClick={() => handleDelete(p._id)}
-                    disabled={deleting === p._id}
+                    disabled={deleteMutation.isPending}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     aria-label={`Delete ${p.title}`}
                   >
-                    {deleting === p._id ? "..." : "Delete"}
+                    {deleteMutation.isPending ? "..." : "Delete"}
                   </button>
                 </div>
               </div>
@@ -436,7 +409,8 @@ export default function PaighamPage() {
           onSaved={() => {
             setShowForm(false);
             setEditingPaigham(null);
-            fetchPaighams();
+            queryClient.invalidateQueries({ queryKey: ["paighams"] });
+            queryClient.invalidateQueries({ queryKey: ["stats"] });
           }}
         />
       )}

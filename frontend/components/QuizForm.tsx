@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import axios from "axios";
+import api from "../services/api";
 
 interface Paigham {
   _id: string;
@@ -72,21 +72,17 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
   const [error, setError] = useState("");
   const [expandedQ, setExpandedQ] = useState<number | null>(null);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   useEffect(() => {
     const fetchTypes = async () => {
       try {
-        const res = await axios.get("/api/quiz/types", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get("/quiz/types");
         if (res.data.success) setQuizTypes(res.data.data);
       } catch {
         /* ignore */
       }
     };
     fetchTypes();
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     if (quiz) {
@@ -180,13 +176,9 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
       const payload = { title, description, paighamId, quizTypeId, startDate, endDate, questions };
 
       if (quiz) {
-        await axios.put(`/api/quiz/${quiz._id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.put(`/quiz/${quiz._id}`, payload);
       } else {
-        await axios.post("/api/quiz", payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.post("/quiz", payload);
       }
 
       onSaved();
