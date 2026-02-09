@@ -12,7 +12,7 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `src/modules/admin/` - Admin model, controller (login), routes.
 - `src/modules/paigham/` - Paigham model, routes (CRUD).
 - `src/modules/quiz/` - Quiz model, QuizType model, routes (CRUD).
-- `src/modules/submission/` - Submission model, service (validation), routes.
+- `src/modules/submission/` - Submission model, service (validation), routes (CRUD with PUT/DELETE for inline editing).
 - `src/modules/member/` - Member service (mock API, replaceable), routes (public lookup by OMJ card).
 - `src/modules/stats/` - Dashboard stats endpoint (counts for paighams, quizzes, submissions).
 - `src/modules/upload/` - PDF file upload endpoint using multer (10MB limit, PDF-only).
@@ -20,14 +20,14 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 ### Frontend (`frontend/`)
 - Next.js 16 + React 19 + Tailwind CSS v4 + Axios
 - `frontend/components/Layout.tsx` - Admin layout with responsive sidebar, top nav, logout.
-- `frontend/components/PaighamForm.tsx` - Modal form for creating/editing Paighams with PDF upload.
+- `frontend/components/PaighamForm.tsx` - Modal form for creating/editing Paighams with drag-and-drop PDF upload, progress bar, preview/replace/remove.
 - `frontend/src/app/admin/login/page.tsx` - Admin login page.
-- `frontend/src/app/admin/dashboard/page.tsx` - Dashboard with stats cards.
-- `frontend/src/app/admin/paigham/page.tsx` - Paigham list with pagination, CRUD.
-- `frontend/src/app/admin/quizzes/page.tsx` - Quiz list grouped by Paigham, CRUD with search.
+- `frontend/src/app/admin/dashboard/page.tsx` - Dashboard with stats cards and recent submissions table (last 5, time-ago display).
+- `frontend/src/app/admin/paigham/page.tsx` - Paigham list with search, sortable columns (title/date), pagination with ellipsis, mobile card view, CRUD.
+- `frontend/src/app/admin/quizzes/page.tsx` - Quiz list grouped by Paigham, CRUD with search, collapsible groups, status badges.
 - `frontend/components/QuizForm.tsx` - Modal form for creating/editing Quizzes with dynamic question editor (multiple choice, word search, translate, image).
-- `frontend/src/app/admin/submissions/page.tsx` - Submissions list with filters (Paigham/Quiz), pagination, CSV export.
-- `frontend/src/app/paigham/page.tsx` - Public bookshelf-style display of all Paigham magazines with PDF download.
+- `frontend/src/app/admin/submissions/page.tsx` - Submissions list with text search (member/OMJ/quiz), sortable columns (all 6 fields), filter by Paigham/Quiz, inline editing of OMJ card, delete, pagination with ellipsis, mobile card view with expandable rows, CSV export with BOM.
+- `frontend/src/app/paigham/page.tsx` - Public bookshelf-style display of all Paigham magazines with download button and open-in-new-tab button per card.
 - `frontend/src/app/quiz/[quizId]/page.tsx` - Public quiz-taking page with OMJ card verification, dynamic question rendering (multiple choice, word search, translate, image, guess_who with blurred image reveal, text), countdown timer, required-field validation, and smooth submit states (loading/success/error/retry).
 - `frontend/components/Notification.tsx` - Reusable notification component (success/error/info) with auto-dismiss (3-5s), progress bar, NotificationContainer for stacking.
 - `frontend/components/LoadingSpinner.tsx` - Reusable loading spinner with sm/md/lg/xl sizes, fullPage mode, overlay mode, InlineLoading variant.

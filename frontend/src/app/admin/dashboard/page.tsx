@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import Layout from "../../../../components/Layout";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Notification from "../../../../components/Notification";
@@ -12,9 +13,30 @@ interface Stats {
   submissionCount: number;
 }
 
+interface Paigham {
+  _id: string;
+  title: string;
+}
+
+interface PopulatedQuiz {
+  _id: string;
+  title: string;
+  paighamId: Paigham | null;
+}
+
+interface Submission {
+  _id: string;
+  quizId: PopulatedQuiz | string;
+  memberOmjCard: string;
+  memberSnapshot: Record<string, unknown>;
+  answers: Record<string, unknown>[];
+  submittedAt: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [recentSubmissions, setRecentSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -25,25 +47,72 @@ export default function DashboardPage() {
       return;
     }
 
-    fetch("/api/stats", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (res) => {
-        if (res.status === 401) {
+    Promise.all([
+      fetch("/api/stats", { headers: { Authorization: `Bearer ${token}` } }).then(async (r) => {
+        if (r.status === 401) {
+          localStorage.removeItem("token");
+          router.push("/admin/login");
+          return null;
+        }
+        return r.json();
+      }),
+      axios.get("/api/submission", { headers: { Authorization: `Bearer ${token}` } }),
+    ])
+      .then(([statsData, subRes]) => {
+        if (!statsData) return;
+        if (statsData.success) setStats(statsData.data);
+        else setError(statsData.message || "Failed to load stats");
+
+        if (subRes.data.success) {
+          const sorted = [...subRes.data.data].sort(
+            (a: Submission, b: Submission) =>
+              new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+          );
+          setRecentSubmissions(sorted.slice(0, 5));
+        }
+      })
+      .catch((err) => {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
           localStorage.removeItem("token");
           router.push("/admin/login");
           return;
         }
-        const data = await res.json();
-        if (data.success) {
-          setStats(data.data);
-        } else {
-          setError(data.message || "Failed to load stats");
-        }
+        setError("Failed to load dashboard data");
       })
-      .catch(() => setError("Failed to load stats"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  const getMemberName = (s: Submission) => {
+    if (s.memberSnapshot && typeof s.memberSnapshot === "object") {
+      return (s.memberSnapshot.name as string) || s.memberOmjCard;
+    }
+    return s.memberOmjCard;
+  };
+
+  const getQuizTitle = (s: Submission) => {
+    if (s.quizId && typeof s.quizId === "object") return s.quizId.title;
+    return "\u2014";
+  };
+
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    return formatDate(dateStr);
+  };
 
   const cards = stats
     ? [
@@ -100,26 +169,104 @@ export default function DashboardPage() {
       )}
 
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {cards.map((card) => (
-            <a
-              key={card.label}
-              href={card.href}
-              className={`bg-white dark:bg-[#1A1128] rounded-xl border ${card.borderColor} p-6 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group block`}
-              aria-label={`${card.label}: ${card.value}`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{card.value}</p>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+            {cards.map((card) => (
+              <a
+                key={card.label}
+                href={card.href}
+                className={`bg-white dark:bg-[#1A1128] rounded-xl border ${card.borderColor} p-6 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group block`}
+                aria-label={`${card.label}: ${card.value}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{card.value}</p>
+                  </div>
+                  <div className={`rounded-xl p-3 ${card.color} group-hover:scale-110 transition-transform duration-300`}>
+                    {card.icon}
+                  </div>
                 </div>
-                <div className={`rounded-xl p-3 ${card.color} group-hover:scale-110 transition-transform duration-300`}>
-                  {card.icon}
-                </div>
+              </a>
+            ))}
+          </div>
+
+          <div className="bg-white dark:bg-[#1A1128] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Submissions</h2>
               </div>
-            </a>
-          ))}
-        </div>
+              <a
+                href="/admin/submissions"
+                className="text-xs font-medium text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 transition-colors duration-200"
+              >
+                View all
+              </a>
+            </div>
+
+            {recentSubmissions.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm text-gray-400 dark:text-gray-500">No submissions yet</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full" aria-label="Recent submissions">
+                    <thead>
+                      <tr className="bg-gray-50/80 dark:bg-[#0F0A1A]/50">
+                        <th scope="col" className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Member</th>
+                        <th scope="col" className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Quiz</th>
+                        <th scope="col" className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Answers</th>
+                        <th scope="col" className="text-right px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">When</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {recentSubmissions.map((s) => (
+                        <tr key={s._id} className="hover:bg-primary-50/50 dark:hover:bg-primary-50/30 transition-colors duration-150">
+                          <td className="px-5 py-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{getMemberName(s)}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{s.memberOmjCard}</p>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{getQuizTitle(s)}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{s.answers?.length || 0}</span>
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{timeAgo(s.submittedAt)}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile list */}
+                <div className="sm:hidden divide-y divide-gray-100 dark:divide-gray-800">
+                  {recentSubmissions.map((s) => (
+                    <div key={s._id} className="px-4 py-3 flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{getMemberName(s)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{getQuizTitle(s)}</p>
+                      </div>
+                      <div className="text-right ml-3 flex-shrink-0">
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(s.submittedAt)}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{s.answers?.length || 0} answers</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </>
       )}
     </Layout>
   );

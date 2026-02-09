@@ -56,4 +56,43 @@ router.get("/:id", authMiddleware, async (req: Request, res: Response) => {
   res.json({ success: true, data: submission, message: "Submission retrieved successfully" });
 });
 
+router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { memberOmjCard, answers } = req.body;
+    const update: Record<string, unknown> = {};
+    if (memberOmjCard !== undefined) update.memberOmjCard = memberOmjCard;
+    if (answers !== undefined) update.answers = answers;
+
+    const submission = await Submission.findByIdAndUpdate(
+      req.params.id,
+      { $set: update },
+      { new: true }
+    ).populate(populateQuiz);
+
+    if (!submission) {
+      res.status(404).json({ success: false, data: null, message: "Submission not found" });
+      return;
+    }
+
+    res.json({ success: true, data: submission, message: "Submission updated successfully" });
+  } catch {
+    res.status(500).json({ success: false, data: null, message: "Failed to update submission" });
+  }
+});
+
+router.delete("/:id", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const submission = await Submission.findByIdAndDelete(req.params.id);
+
+    if (!submission) {
+      res.status(404).json({ success: false, data: null, message: "Submission not found" });
+      return;
+    }
+
+    res.json({ success: true, data: null, message: "Submission deleted successfully" });
+  } catch {
+    res.status(500).json({ success: false, data: null, message: "Failed to delete submission" });
+  }
+});
+
 export default router;
