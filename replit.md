@@ -13,7 +13,7 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `src/modules/paigham/` - Paigham model, routes (CRUD).
 - `src/modules/quiz/` - Quiz model, QuizType model, routes (CRUD).
 - `src/modules/submission/` - Submission model, service (validation), routes.
-- `src/modules/member/` - Member service (mock API, replaceable).
+- `src/modules/member/` - Member service (mock API, replaceable), routes (public lookup by OMJ card).
 - `src/modules/stats/` - Dashboard stats endpoint (counts for paighams, quizzes, submissions).
 - `src/modules/upload/` - PDF file upload endpoint using multer (10MB limit, PDF-only).
 
@@ -27,6 +27,8 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `frontend/src/app/admin/quizzes/page.tsx` - Quiz list grouped by Paigham, CRUD with search.
 - `frontend/components/QuizForm.tsx` - Modal form for creating/editing Quizzes with dynamic question editor (multiple choice, word search, translate, image).
 - `frontend/src/app/admin/submissions/page.tsx` - Submissions list with filters (Paigham/Quiz), pagination, CSV export.
+- `frontend/src/app/paigham/page.tsx` - Public bookshelf-style display of all Paigham magazines with PDF download.
+- `frontend/src/app/quiz/[quizId]/page.tsx` - Public quiz-taking page with OMJ card verification, dynamic question rendering, and submission.
 - API calls proxied to backend via Next.js rewrites (`/api/*` and `/uploads/*` -> `localhost:3001`).
 
 ## Tech Stack
