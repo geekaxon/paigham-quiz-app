@@ -9,27 +9,27 @@ export const loginAdmin = async (req: Request, res: Response): Promise<void> => 
   const { email, password } = req.body;
 
   if (!email || !password) {
-    res.status(400).json({ error: "Email and password are required" });
+    res.status(400).json({ success: false, data: null, message: "Email and password are required" });
     return;
   }
 
   if (!JWT_SECRET) {
     console.error("JWT_SECRET environment variable is not set");
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ success: false, data: null, message: "Internal Server Error" });
     return;
   }
 
   const admin = await Admin.findOne({ email });
 
   if (!admin) {
-    res.status(401).json({ error: "Invalid email or password" });
+    res.status(401).json({ success: false, data: null, message: "Invalid email or password" });
     return;
   }
 
   const isMatch = await bcrypt.compare(password, admin.passwordHash);
 
   if (!isMatch) {
-    res.status(401).json({ error: "Invalid email or password" });
+    res.status(401).json({ success: false, data: null, message: "Invalid email or password" });
     return;
   }
 
@@ -40,12 +40,16 @@ export const loginAdmin = async (req: Request, res: Response): Promise<void> => 
   );
 
   res.json({
-    token,
-    admin: {
-      id: admin._id,
-      name: admin.name,
-      email: admin.email,
-      role: admin.role,
+    success: true,
+    data: {
+      token,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+      },
     },
+    message: "Login successful",
   });
 };
