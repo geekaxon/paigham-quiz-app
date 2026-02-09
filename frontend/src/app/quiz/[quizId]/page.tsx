@@ -163,18 +163,18 @@ export default function QuizPage() {
                   onClick={() => updateAnswer(index, optIdx)}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all w-full text-left ${
                     answers[index] === optIdx
-                      ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                      ? "border-primary bg-primary-50 ring-1 ring-primary dark:border-primary-400 dark:bg-primary-400/10 dark:ring-primary-400"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    answers[index] === optIdx ? "border-blue-500" : "border-gray-300"
+                    answers[index] === optIdx ? "border-primary dark:border-primary-400" : "border-gray-300 dark:border-gray-600"
                   }`}>
                     {answers[index] === optIdx && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <div className="w-2 h-2 rounded-full bg-primary dark:bg-primary-400" />
                     )}
                   </div>
-                  <span className="text-sm text-gray-700">{opt}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{opt}</span>
                 </button>
               ))}
             </div>
@@ -192,7 +192,7 @@ export default function QuizPage() {
               value={(answers[index] as string) || ""}
               onChange={(e) => updateAnswer(index, e.target.value)}
               placeholder="Enter the word"
-              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent"
             />
           </div>
         );
@@ -219,7 +219,7 @@ export default function QuizPage() {
               value={(answers[index] as string) || ""}
               onChange={(e) => updateAnswer(index, e.target.value)}
               placeholder={`Translate to ${q.targetLanguage as string}`}
-              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent"
             />
           </div>
         );
@@ -242,7 +242,7 @@ export default function QuizPage() {
               value={(answers[index] as string) || ""}
               onChange={(e) => updateAnswer(index, e.target.value)}
               placeholder="Enter your answer"
-              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent"
             />
           </div>
         );
@@ -258,10 +258,10 @@ export default function QuizPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-secondary to-primary-100 dark:from-[#0F0A1A] dark:via-[#1A1128] dark:to-[#0F0A1A] flex items-center justify-center">
         <div className="text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 mx-auto" />
-          <p className="mt-4 text-sm text-gray-500">Loading quiz...</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-100 border-t-primary dark:border-primary-200 dark:border-t-primary-400 mx-auto" />
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading quiz...</p>
         </div>
       </div>
     );
@@ -269,14 +269,14 @@ export default function QuizPage() {
 
   if (error || !quiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-secondary to-primary-100 dark:from-[#0F0A1A] dark:via-[#1A1128] dark:to-[#0F0A1A] flex items-center justify-center">
         <div className="text-center max-w-sm mx-auto px-4">
-          <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Quiz Not Found</h2>
-          <p className="text-gray-500 text-sm">{error || "This quiz does not exist or has been removed."}</p>
-          <a href="/" className="inline-block mt-6 text-sm text-blue-600 hover:text-blue-800 font-medium">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Quiz Not Found</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">{error || "This quiz does not exist or has been removed."}</p>
+          <a href="/" className="inline-block mt-6 text-sm text-primary dark:text-primary-400 hover:text-primary-light font-medium transition-colors duration-200">
             Go to Home
           </a>
         </div>
@@ -285,18 +285,18 @@ export default function QuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-secondary to-primary-100 dark:from-[#0F0A1A] dark:via-[#1A1128] dark:to-[#0F0A1A]">
+      <header className="bg-white/80 dark:bg-[#1A1128]/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-light dark:from-primary-400 dark:to-primary-300 flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{quiz.title}</h1>
-              <p className="text-sm text-gray-500 mt-0.5">{quiz.description}</p>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">{quiz.title}</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{quiz.description}</p>
               {quiz.paighamId && (
                 <p className="text-xs text-gray-400 mt-1">From: {quiz.paighamId.title}</p>
               )}
@@ -378,12 +378,12 @@ export default function QuizPage() {
                 onChange={(e) => setOmjCard(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") lookupMember(); }}
                 placeholder="e.g. OMJ-001"
-                className="flex-1 rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent"
               />
               <button
                 onClick={lookupMember}
                 disabled={memberLoading}
-                className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="rounded-lg bg-primary dark:bg-primary-400 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-light dark:hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 {memberLoading ? (
                   <span className="flex items-center gap-2">
@@ -402,8 +402,8 @@ export default function QuizPage() {
           <form onSubmit={handleSubmit}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5 mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-400/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-primary dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
@@ -431,7 +431,7 @@ export default function QuizPage() {
               {quiz.questions.map((q, idx) => (
                 <div key={idx} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 sm:p-6">
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center justify-center">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-primary-50 dark:bg-primary-400/10 text-primary dark:text-primary-400 text-xs font-semibold flex items-center justify-center">
                       {idx + 1}
                     </span>
                     <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -451,7 +451,7 @@ export default function QuizPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full sm:w-auto rounded-xl bg-blue-600 px-8 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-600/20"
+                className="w-full sm:w-auto rounded-xl bg-primary dark:bg-primary-400 px-8 py-3 text-sm font-semibold text-white hover:bg-primary-light dark:hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-primary/20"
               >
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">

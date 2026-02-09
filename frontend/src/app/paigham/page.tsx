@@ -50,18 +50,18 @@ export default function PaighamPublicPage() {
     });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-secondary to-primary-100 dark:from-[#0F0A1A] dark:via-[#1A1128] dark:to-[#0F0A1A]">
+      <header className="bg-white/80 dark:bg-[#1A1128]/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-light dark:from-primary-400 dark:to-primary-300 flex items-center justify-center shadow-lg shadow-primary/25">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Paigham Magazines</h1>
-              <p className="text-sm text-gray-500 hidden sm:block">Browse and download our publications</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Paigham Magazines</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">Browse and download our publications</p>
             </div>
           </div>
         </div>
@@ -71,7 +71,7 @@ export default function PaighamPublicPage() {
         {loading ? (
           <div className="flex items-center justify-center py-32">
             <div className="text-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 mx-auto" />
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-100 border-t-primary dark:border-primary-200 dark:border-t-primary-400 mx-auto" />
               <p className="mt-4 text-sm text-gray-500">Loading magazines...</p>
             </div>
           </div>
@@ -109,7 +109,7 @@ export default function PaighamPublicPage() {
                     rel="noopener noreferrer"
                     className="block"
                   >
-                    <div className="relative aspect-[3/4] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700">
+                    <div className="relative aspect-[3/4] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 bg-gradient-to-br from-primary via-primary-light to-primary-400">
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
                         <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white/40 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
@@ -135,8 +135,8 @@ export default function PaighamPublicPage() {
                   </a>
 
                   <div className="mt-2.5 px-0.5">
-                    <h3 className="text-sm font-medium text-gray-900 line-clamp-1">{p.title}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{formatDate(p.publicationDate)}</p>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{p.title}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{formatDate(p.publicationDate)}</p>
                   </div>
                 </div>
               ))}

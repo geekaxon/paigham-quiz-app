@@ -202,11 +202,11 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "multiple_choice": return "bg-purple-100 text-purple-700";
-      case "word_search": return "bg-green-100 text-green-700";
-      case "translate": return "bg-blue-100 text-blue-700";
-      case "image": return "bg-amber-100 text-amber-700";
-      default: return "bg-gray-100 text-gray-700";
+      case "multiple_choice": return "bg-primary-100 text-primary dark:bg-primary-100/50 dark:text-primary-400";
+      case "word_search": return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
+      case "translate": return "bg-primary-50 text-primary dark:bg-primary-400/10 dark:text-primary-400";
+      case "image": return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+      default: return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
     }
   };
 
@@ -222,7 +222,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.question as string) || ""}
                 onChange={(e) => updateQuestion(index, "question", e.target.value)}
                 placeholder="Enter question"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
             <div>
@@ -231,7 +231,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 <button
                   type="button"
                   onClick={() => addOption(index)}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-xs text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 font-medium transition-colors duration-200"
                 >
                   + Add Option
                 </button>
@@ -260,7 +260,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                       value={opt}
                       onChange={(e) => updateOption(index, optIdx, e.target.value)}
                       placeholder={`Option ${optIdx + 1}`}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
                     />
                     {(q.options as string[]).length > 2 && (
                       <button
@@ -291,7 +291,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.clue as string) || ""}
                 onChange={(e) => updateQuestion(index, "clue", e.target.value)}
                 placeholder="Enter clue for word search"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
             <div>
@@ -301,7 +301,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.answer as string) || ""}
                 onChange={(e) => updateQuestion(index, "answer", e.target.value)}
                 placeholder="Enter the word to find"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
           </div>
@@ -317,7 +317,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 onChange={(e) => updateQuestion(index, "sourceText", e.target.value)}
                 placeholder="Enter text to translate"
                 rows={2}
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent resize-none"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -328,7 +328,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                   value={(q.sourceLanguage as string) || ""}
                   onChange={(e) => updateQuestion(index, "sourceLanguage", e.target.value)}
                   placeholder="e.g. Arabic"
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
                 />
               </div>
               <div>
@@ -338,7 +338,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                   value={(q.targetLanguage as string) || ""}
                   onChange={(e) => updateQuestion(index, "targetLanguage", e.target.value)}
                   placeholder="e.g. English"
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
                 />
               </div>
             </div>
@@ -349,7 +349,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.answer as string) || ""}
                 onChange={(e) => updateQuestion(index, "answer", e.target.value)}
                 placeholder="Enter expected translation"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
           </div>
@@ -365,7 +365,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.imageUrl as string) || ""}
                 onChange={(e) => updateQuestion(index, "imageUrl", e.target.value)}
                 placeholder="https://example.com/image.jpg"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
               {(q.imageUrl as string) && (
                 <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden">
@@ -385,7 +385,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.question as string) || ""}
                 onChange={(e) => updateQuestion(index, "question", e.target.value)}
                 placeholder="What does this image show?"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
             <div>
@@ -395,7 +395,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.answer as string) || ""}
                 onChange={(e) => updateQuestion(index, "answer", e.target.value)}
                 placeholder="Expected answer"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
           </div>
@@ -407,18 +407,19 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl z-10">
-          <h2 className="text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label={quiz ? "Edit Quiz" : "Add Quiz"}>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="relative bg-white dark:bg-[#1A1128] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-[#1A1128] rounded-t-2xl z-10">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
             {quiz ? "Edit Quiz" : "Add Quiz"}
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+            aria-label="Close dialog"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -426,19 +427,20 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
               {error}
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Paigham</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Paigham</label>
               <select
                 required
                 value={paighamId}
                 onChange={(e) => setPaighamId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                aria-label="Select Paigham"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#0F0A1A] px-3.5 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               >
                 <option value="">Select Paigham</option>
                 {paighams.map((p) => (
@@ -447,12 +449,13 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Quiz Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quiz Type</label>
               <select
                 required
                 value={quizTypeId}
                 onChange={(e) => setQuizTypeId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                aria-label="Select quiz type"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#0F0A1A] px-3.5 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               >
                 <option value="">Select Type</option>
                 {quizTypes.map((t) => (
@@ -463,48 +466,48 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Title</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Title</label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Quiz title"
-              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Description</label>
             <textarea
               required
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief quiz description"
-              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent resize-none"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Start Date</label>
               <input
                 type="date"
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">End Date</label>
               <input
                 type="date"
                 required
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
           </div>
@@ -517,7 +520,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
               <div className="relative group">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 transition-colors duration-200"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -614,14 +617,14 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex-1 rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 rounded-lg bg-primary dark:bg-primary-400 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-light dark:hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
             >
               {saving ? "Saving..." : quiz ? "Update Quiz" : "Create Quiz"}
             </button>

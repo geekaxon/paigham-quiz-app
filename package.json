@@ -18,6 +18,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.20",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/multer": "^2.0.0",
