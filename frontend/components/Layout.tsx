@@ -19,7 +19,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    window.location.href = "/login";
+    window.location.href = "/admin/login";
   };
 
   return (

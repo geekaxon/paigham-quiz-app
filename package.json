@@ -20,6 +20,7 @@
   "dependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
+    "@types/multer": "^2.0.0",
     "acorn": "^8.15.0",
     "acorn-walk": "^8.3.4",
     "anymatch": "^3.1.3",
