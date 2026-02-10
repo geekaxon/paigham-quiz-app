@@ -88,8 +88,8 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
       setError("Only PDF files are allowed");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("File size must be under 10 MB");
+    if (file.size > 200 * 1024 * 1024) {
+      setError("File size must be under 200 MB");
       return;
     }
 
@@ -346,7 +346,7 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         <span className="text-primary dark:text-primary-400">Click to upload</span> or drag and drop
                       </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PDF only, max 10 MB</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PDF only, max 200 MB</p>
                     </div>
                   </div>
                 )}
