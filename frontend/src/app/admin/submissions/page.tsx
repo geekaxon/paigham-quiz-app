@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { submissionApi, paighamApi, type Submission, type Paigham } from "../../../../services/api";
+import { submissionApi, paighamApi, quizApi, type Submission, type Paigham } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import ConfirmModal from "../../../../components/ConfirmModal";
@@ -28,6 +28,7 @@ export default function SubmissionsPage() {
   const [editOmjCard, setEditOmjCard] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [expandedAnswers, setExpandedAnswers] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -76,6 +77,105 @@ export default function SubmissionsPage() {
       setDeleteTarget(null);
     },
   });
+
+  const winnerMutation = useMutation({
+    mutationFn: async ({ quizId, submissionId, isWinner }: { quizId: string; submissionId: string; isWinner: boolean }) => {
+      const quizSubs = submissions.filter((s) => {
+        const qId = typeof s.quizId === "object" ? s.quizId._id : s.quizId;
+        return qId === quizId;
+      });
+      const currentWinners = quizSubs
+        .filter((s) => {
+          const qId = typeof s.quizId === "object" ? s.quizId._id : s.quizId;
+          return qId === quizId;
+        })
+        .map((s) => s._id);
+
+      let newWinners: string[];
+      if (isWinner) {
+        newWinners = [...new Set([...getQuizWinners(quizId), submissionId])];
+      } else {
+        newWinners = getQuizWinners(quizId).filter((id) => id !== submissionId);
+      }
+      return quizApi.updateWinners(quizId, { winners: newWinners });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizWinners"] });
+      toast.success("Winner status updated");
+    },
+    onError: () => toast.error("Failed to update winner"),
+  });
+
+  const showWinnersMutation = useMutation({
+    mutationFn: async ({ quizId, show }: { quizId: string; show: boolean }) => {
+      return quizApi.updateWinners(quizId, { showWinners: show });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizWinners"] });
+      toast.success("Winners visibility updated");
+    },
+    onError: () => toast.error("Failed to update winners visibility"),
+  });
+
+  const [quizWinnersMap, setQuizWinnersMap] = useState<Record<string, { winners: string[]; showWinners: boolean }>>({});
+
+  useEffect(() => {
+    const fetchWinners = async () => {
+      const quizIds = new Set<string>();
+      submissions.forEach((s) => {
+        const qId = typeof s.quizId === "object" ? s.quizId._id : s.quizId;
+        if (qId) quizIds.add(qId);
+      });
+
+      const map: Record<string, { winners: string[]; showWinners: boolean }> = {};
+      for (const qId of quizIds) {
+        try {
+          const res = await quizApi.getAll();
+          if (res.success) {
+            res.data.forEach((q) => {
+              map[q._id] = { winners: q.winners || [], showWinners: q.showWinners || false };
+            });
+          }
+          break;
+        } catch { /* ignore */ }
+      }
+      setQuizWinnersMap(map);
+    };
+    if (submissions.length > 0 && token) fetchWinners();
+  }, [submissions, token]);
+
+  const getQuizWinners = (quizId: string): string[] => {
+    return quizWinnersMap[quizId]?.winners || [];
+  };
+
+  const isWinner = (quizId: string, submissionId: string): boolean => {
+    return getQuizWinners(quizId).includes(submissionId);
+  };
+
+  const toggleWinner = (s: Submission) => {
+    const qId = typeof s.quizId === "object" ? s.quizId._id : (s.quizId as string);
+    const currentlyWinner = isWinner(qId, s._id);
+
+    const newWinners = currentlyWinner
+      ? getQuizWinners(qId).filter((id) => id !== s._id)
+      : [...getQuizWinners(qId), s._id];
+
+    setQuizWinnersMap((prev) => ({
+      ...prev,
+      [qId]: { ...prev[qId], winners: newWinners },
+    }));
+
+    winnerMutation.mutate({ quizId: qId, submissionId: s._id, isWinner: !currentlyWinner });
+  };
+
+  const toggleShowWinners = (quizId: string) => {
+    const current = quizWinnersMap[quizId]?.showWinners || false;
+    setQuizWinnersMap((prev) => ({
+      ...prev,
+      [quizId]: { ...prev[quizId], showWinners: !current },
+    }));
+    showWinnersMutation.mutate({ quizId, show: !current });
+  };
 
   if (!token) {
     router.push("/admin/login");
@@ -259,6 +359,12 @@ export default function SubmissionsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const getSimilarityColor = (score: number) => {
+    if (score >= 80) return "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20";
+    if (score >= 50) return "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20";
+    return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20";
+  };
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
       return (
@@ -288,6 +394,43 @@ export default function SubmissionsPage() {
       <SortIcon field={field} />
     </button>
   );
+
+  const renderAnswersDetail = (s: Submission) => {
+    if (!s.answers || s.answers.length === 0) return null;
+    const scores = s.similarityScores || [];
+
+    return (
+      <div className="space-y-2 mt-3">
+        {s.answers.map((a, i) => {
+          const score = scores.find((sc) => sc.questionIndex === i);
+          const answerStr = typeof a.answer === "object" && Array.isArray(a.answer)
+            ? (a.answer as string[]).join(", ")
+            : String(a.answer || "—");
+
+          return (
+            <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
+                {i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-700 dark:text-gray-300 break-words">{answerStr}</p>
+                {score && score.expectedAnswer && (
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                    Expected: {score.expectedAnswer}
+                  </p>
+                )}
+              </div>
+              {score !== undefined && (
+                <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${getSimilarityColor(score.similarity)}`}>
+                  {score.similarity}%
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <Layout>
@@ -377,6 +520,21 @@ export default function SubmissionsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
+          {filterQuiz && (
+            <button
+              onClick={() => toggleShowWinners(filterQuiz)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2.5 text-sm rounded-lg border transition-all duration-200 ${
+                quizWinnersMap[filterQuiz]?.showWinners
+                  ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                  : "border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              {quizWinnersMap[filterQuiz]?.showWinners ? "Winners Visible" : "Show Winners"}
+            </button>
+          )}
           {(filterPaigham || filterQuiz || searchTerm) && (
             <button
               onClick={() => {
@@ -440,166 +598,220 @@ export default function SubmissionsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {paginated.map((s) => (
-                    <tr key={s._id} className="hover:bg-primary-50/50 dark:hover:bg-primary-50/30 transition-colors duration-150">
-                      <td className="px-5 py-4">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">{getMemberName(s)}</span>
-                      </td>
-                      <td className="px-5 py-4">
-                        {editingId === s._id ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              ref={editInputRef}
-                              type="text"
-                              value={editOmjCard}
-                              onChange={(e) => setEditOmjCard(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") saveEdit();
-                                if (e.key === "Escape") cancelEdit();
-                              }}
-                              className="w-28 rounded border border-primary dark:border-primary-400 bg-white dark:bg-[#0F0A1A] px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-primary-400"
-                              aria-label="Edit OMJ card number"
-                            />
-                            <button
-                              onClick={saveEdit}
-                              disabled={updateMutation.isPending}
-                              className="p-1 rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
-                              aria-label="Save"
-                            >
-                              {updateMutation.isPending ? (
-                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
-                              ) : (
+                  {paginated.map((s) => {
+                    const qId = typeof s.quizId === "object" ? s.quizId._id : (s.quizId as string);
+                    const isW = isWinner(qId, s._id);
+                    return (
+                      <tr key={s._id} className={`hover:bg-primary-50/50 dark:hover:bg-primary-50/30 transition-colors duration-150 ${isW ? "bg-amber-50/30 dark:bg-amber-900/10" : ""}`}>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
+                            {isW && (
+                              <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-label="Winner">
+                                <path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                              </svg>
+                            )}
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">{getMemberName(s)}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          {editingId === s._id ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                ref={editInputRef}
+                                type="text"
+                                value={editOmjCard}
+                                onChange={(e) => setEditOmjCard(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveEdit();
+                                  if (e.key === "Escape") cancelEdit();
+                                }}
+                                className="w-28 rounded border border-primary dark:border-primary-400 bg-white dark:bg-[#0F0A1A] px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-primary-400"
+                                aria-label="Edit OMJ card number"
+                              />
+                              <button
+                                onClick={saveEdit}
+                                disabled={updateMutation.isPending}
+                                className="p-1 rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
+                                aria-label="Save"
+                              >
+                                {updateMutation.isPending ? (
+                                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                aria-label="Cancel edit"
+                              >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
-                              )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center text-xs font-mono font-semibold px-2.5 py-1 rounded-md bg-primary-50 text-primary dark:bg-primary-50/50 dark:text-primary-400">
+                              {s.memberOmjCard}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{getQuizTitle(s)}</span>
+                        </td>
+                        <td className="px-5 py-4 hidden lg:table-cell">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{getPaighamTitle(s)}</span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <button
+                            onClick={() => setExpandedAnswers(expandedAnswers === s._id ? null : s._id)}
+                            className="inline-flex items-center gap-1 text-xs font-bold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 px-2.5 py-1 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            {s.answers?.length || 0}
+                            <svg className={`w-3 h-3 transition-transform ${expandedAnswers === s._id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {expandedAnswers === s._id && renderAnswersDetail(s)}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(s.submittedAt)}</span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="inline-flex gap-1">
+                            <button
+                              onClick={() => toggleWinner(s)}
+                              className={`p-2 rounded-lg transition-all duration-200 ${
+                                isW
+                                  ? "text-amber-500 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                                  : "text-gray-400 dark:text-gray-500 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                              }`}
+                              aria-label={isW ? "Remove winner" : "Mark as winner"}
+                              title={isW ? "Remove winner" : "Mark as winner"}
+                            >
+                              <svg className="w-4 h-4" fill={isW ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                              </svg>
                             </button>
                             <button
-                              onClick={cancelEdit}
-                              className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                              aria-label="Cancel edit"
+                              onClick={() => startEdit(s)}
+                              disabled={editingId === s._id}
+                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-50/50 transition-all duration-200 disabled:opacity-50"
+                              aria-label={`Edit OMJ card for ${getMemberName(s)}`}
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(s._id)}
+                              disabled={deleteMutation.isPending}
+                              className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
+                              aria-label={`Delete submission from ${getMemberName(s)}`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
                           </div>
-                        ) : (
-                          <span className="inline-flex items-center text-xs font-mono font-semibold px-2.5 py-1 rounded-md bg-primary-50 text-primary dark:bg-primary-50/50 dark:text-primary-400">
-                            {s.memberOmjCard}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{getQuizTitle(s)}</span>
-                      </td>
-                      <td className="px-5 py-4 hidden lg:table-cell">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">{getPaighamTitle(s)}</span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center justify-center w-7 h-7 text-xs font-bold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                          {s.answers?.length || 0}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(s.submittedAt)}</span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="inline-flex gap-1">
-                          <button
-                            onClick={() => startEdit(s)}
-                            disabled={editingId === s._id}
-                            className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-50/50 transition-all duration-200 disabled:opacity-50"
-                            aria-label={`Edit OMJ card for ${getMemberName(s)}`}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(s._id)}
-                            disabled={deleteMutation.isPending}
-                            className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
-                            aria-label={`Delete submission from ${getMemberName(s)}`}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
 
           <div className="md:hidden space-y-3">
-            {paginated.map((s) => (
-              <div
-                key={s._id}
-                className="bg-white dark:bg-[#1A1128] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm"
-              >
-                <button
-                  onClick={() => setExpandedRow(expandedRow === s._id ? null : s._id)}
-                  className="w-full text-left p-4"
-                  aria-expanded={expandedRow === s._id}
+            {paginated.map((s) => {
+              const qId = typeof s.quizId === "object" ? s.quizId._id : (s.quizId as string);
+              const isW = isWinner(qId, s._id);
+              return (
+                <div
+                  key={s._id}
+                  className={`bg-white dark:bg-[#1A1128] rounded-xl border shadow-sm ${isW ? "border-amber-200 dark:border-amber-800" : "border-gray-200 dark:border-gray-800"}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{getMemberName(s)}</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{getQuizTitle(s)}</p>
+                  <button
+                    onClick={() => setExpandedRow(expandedRow === s._id ? null : s._id)}
+                    className="w-full text-left p-4"
+                    aria-expanded={expandedRow === s._id}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {isW && (
+                            <svg className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                            </svg>
+                          )}
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{getMemberName(s)}</h3>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{getQuizTitle(s)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-3">
+                        <span className="inline-flex items-center text-xs font-mono font-semibold px-2 py-0.5 rounded bg-primary-50 text-primary dark:bg-primary-50/50 dark:text-primary-400">
+                          {s.memberOmjCard}
+                        </span>
+                        <svg
+                          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expandedRow === s._id ? "rotate-180" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-3">
-                      <span className="inline-flex items-center text-xs font-mono font-semibold px-2 py-0.5 rounded bg-primary-50 text-primary dark:bg-primary-50/50 dark:text-primary-400">
-                        {s.memberOmjCard}
-                      </span>
-                      <svg
-                        className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expandedRow === s._id ? "rotate-180" : ""}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                  </button>
+                  {expandedRow === s._id && (
+                    <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500 dark:text-gray-400">Paigham</span>
+                        <span className="text-gray-900 dark:text-white">{getPaighamTitle(s)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500 dark:text-gray-400">Answers</span>
+                        <span className="text-gray-900 dark:text-white">{s.answers?.length || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500 dark:text-gray-400">Date</span>
+                        <span className="text-gray-900 dark:text-white">{formatDate(s.submittedAt)}</span>
+                      </div>
+                      {renderAnswersDetail(s)}
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => toggleWinner(s)}
+                          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                            isW
+                              ? "text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20"
+                              : "text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                          }`}
+                        >
+                          {isW ? "Winner ★" : "Mark Winner"}
+                        </button>
+                        <button
+                          onClick={() => startEdit(s)}
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          Edit OMJ
+                        </button>
+                        <button
+                          onClick={() => handleDelete(s._id)}
+                          disabled={deleteMutation.isPending}
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </button>
-                {expandedRow === s._id && (
-                  <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-800 space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500 dark:text-gray-400">Paigham</span>
-                      <span className="text-gray-900 dark:text-white">{getPaighamTitle(s)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500 dark:text-gray-400">Answers</span>
-                      <span className="text-gray-900 dark:text-white">{s.answers?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500 dark:text-gray-400">Date</span>
-                      <span className="text-gray-900 dark:text-white">{formatDate(s.submittedAt)}</span>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        onClick={() => startEdit(s)}
-                        className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        Edit OMJ
-                      </button>
-                      <button
-                        onClick={() => handleDelete(s._id)}
-                        disabled={deleteMutation.isPending}
-                        className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {totalPages > 1 && (

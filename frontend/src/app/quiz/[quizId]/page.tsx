@@ -31,6 +31,8 @@ interface Quiz {
   startDate: string;
   endDate: string;
   questions: Question[];
+  quizImageUrl?: string;
+  showWinners?: boolean;
 }
 
 interface Member {
@@ -38,6 +40,13 @@ interface Member {
   name: string;
   email: string;
   phone: string;
+}
+
+interface Winner {
+  _id: string;
+  memberOmjCard: string;
+  memberSnapshot: Record<string, unknown>;
+  submittedAt: string;
 }
 
 interface TimeLeft {
@@ -161,6 +170,8 @@ const TYPE_LABELS: Record<string, string> = {
   image: "Image Question",
   guess_who: "Guess Who",
   text: "Text Answer",
+  question_answer: "Question & Answer",
+  fill_blanks: "Fill in the Blanks",
 };
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -194,6 +205,16 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
     </svg>
   ),
+  question_answer: (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  fill_blanks: (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" />
+    </svg>
+  ),
 };
 
 const INPUT_CLASS =
@@ -219,6 +240,7 @@ export default function QuizPage() {
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [notification, setNotification] = useState<{ type: NotificationType; message: string } | null>(null);
   const [step, setStep] = useState<"identify" | "quiz" | "done">("identify");
+  const [winners, setWinners] = useState<Winner[]>([]);
 
   const firstErrorRef = useRef<HTMLDivElement | null>(null);
   const storageKey = `quiz_answers_${quizId}`;
@@ -266,6 +288,18 @@ export default function QuizPage() {
       }
     };
     if (quizId) fetchQuiz();
+  }, [quizId]);
+
+  useEffect(() => {
+    const fetchWinners = async () => {
+      try {
+        const res = await api.get(`/quiz/${quizId}/winners`);
+        if (res.data.success && res.data.data.length > 0) {
+          setWinners(res.data.data);
+        }
+      } catch { /* ignore */ }
+    };
+    if (quizId) fetchWinners();
   }, [quizId]);
 
   const [now, setNow] = useState(Date.now());
@@ -331,6 +365,8 @@ export default function QuizPage() {
       if (answer === undefined || answer === null || answer === "") {
         errors[i] = "This question requires an answer";
       } else if (typeof answer === "string" && !answer.trim()) {
+        errors[i] = "This question requires an answer";
+      } else if (Array.isArray(answer) && answer.every((a) => !a || (typeof a === "string" && !a.trim()))) {
         errors[i] = "This question requires an answer";
       }
     });
@@ -402,6 +438,7 @@ export default function QuizPage() {
   const answeredCount = quiz
     ? quiz.questions.filter((_, i) => {
         const a = answers[i];
+        if (Array.isArray(a)) return a.some((v) => v && String(v).trim());
         return a !== undefined && a !== null && a !== "";
       }).length
     : 0;
@@ -444,22 +481,46 @@ export default function QuizPage() {
           </fieldset>
         );
 
-      case "word_search":
+      case "word_search": {
+        const wordCount = (q.wordCount as number) || 1;
+        const currentAnswers = (answers[index] as string[]) || [];
         return (
           <div className="space-y-3">
             <p className="text-sm font-medium text-gray-900 dark:text-white">
               <span className="text-gray-500 dark:text-gray-400">Clue:</span> {q.clue as string}
             </p>
-            <input
-              type="text"
-              value={(answers[index] as string) || ""}
-              onChange={(e) => updateAnswer(index, e.target.value)}
-              placeholder="Enter the word"
-              aria-label={`Answer for clue: ${q.clue as string}`}
-              className={`${INPUT_CLASS} ${hasError ? "ring-2 ring-red-400 border-red-300 dark:border-red-700" : ""}`}
-            />
+            {wordCount === 1 ? (
+              <input
+                type="text"
+                value={currentAnswers[0] || (typeof answers[index] === "string" ? (answers[index] as string) : "")}
+                onChange={(e) => updateAnswer(index, [e.target.value])}
+                placeholder="Enter the word"
+                aria-label={`Answer for clue: ${q.clue as string}`}
+                className={`${INPUT_CLASS} ${hasError ? "ring-2 ring-red-400 border-red-300 dark:border-red-700" : ""}`}
+              />
+            ) : (
+              <div className="space-y-2">
+                {Array.from({ length: wordCount }).map((_, wIdx) => (
+                  <input
+                    key={wIdx}
+                    type="text"
+                    value={currentAnswers[wIdx] || ""}
+                    onChange={(e) => {
+                      const newAnswers = [...currentAnswers];
+                      while (newAnswers.length < wordCount) newAnswers.push("");
+                      newAnswers[wIdx] = e.target.value;
+                      updateAnswer(index, newAnswers);
+                    }}
+                    placeholder={`Word ${wIdx + 1}`}
+                    aria-label={`Word ${wIdx + 1} for clue: ${q.clue as string}`}
+                    className={`${INPUT_CLASS} ${hasError ? "ring-2 ring-red-400 border-red-300 dark:border-red-700" : ""}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         );
+      }
 
       case "translate":
         return (
@@ -492,10 +553,10 @@ export default function QuizPage() {
       case "image":
         return (
           <div className="space-y-3">
-            {(q.imageUrl as string) && (
+            {quiz?.quizImageUrl && (
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800 p-2">
                 <img
-                  src={q.imageUrl as string}
+                  src={quiz.quizImageUrl}
                   alt={(q.question as string) || "Question image"}
                   className="max-h-56 w-auto mx-auto rounded object-contain"
                 />
@@ -549,6 +610,36 @@ export default function QuizPage() {
               rows={3}
               aria-label={`Answer for: ${q.question as string}`}
               className={`${INPUT_CLASS} resize-none ${hasError ? "ring-2 ring-red-400 border-red-300 dark:border-red-700" : ""}`}
+            />
+          </div>
+        );
+
+      case "question_answer":
+        return (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{q.question as string}</p>
+            <textarea
+              value={(answers[index] as string) || ""}
+              onChange={(e) => updateAnswer(index, e.target.value)}
+              placeholder="Type your answer here..."
+              rows={3}
+              aria-label={`Answer for: ${q.question as string}`}
+              className={`${INPUT_CLASS} resize-none ${hasError ? "ring-2 ring-red-400 border-red-300 dark:border-red-700" : ""}`}
+            />
+          </div>
+        );
+
+      case "fill_blanks":
+        return (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{q.sentence as string}</p>
+            <input
+              type="text"
+              value={(answers[index] as string) || ""}
+              onChange={(e) => updateAnswer(index, e.target.value)}
+              placeholder="Fill in the blank"
+              aria-label={`Fill in the blank for: ${q.sentence as string}`}
+              className={`${INPUT_CLASS} ${hasError ? "ring-2 ring-red-400 border-red-300 dark:border-red-700" : ""}`}
             />
           </div>
         );
@@ -695,6 +786,32 @@ export default function QuizPage() {
               </svg>
               Browse Magazines
             </a>
+          </div>
+        )}
+
+        {winners.length > 0 && (step === "done" || isExpired) && (
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-6 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">Winners</h3>
+            </div>
+            <div className="space-y-2">
+              {winners.map((w, idx) => (
+                <div key={w._id} className="flex items-center gap-3 p-3 rounded-lg bg-white/60 dark:bg-gray-800/40 border border-amber-100 dark:border-amber-800/50">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {(w.memberSnapshot?.name as string) || w.memberOmjCard}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{w.memberOmjCard}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

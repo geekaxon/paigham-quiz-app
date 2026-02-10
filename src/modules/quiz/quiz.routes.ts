@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import Quiz from "./quiz.model";
 import QuizType from "./quizType.model";
+import Submission from "../submission/submission.model";
 
 const router = Router();
 
@@ -37,7 +38,16 @@ router.get("/:id", async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ success: true, data: quiz, message: "Quiz retrieved successfully" });
+  const quizObj = quiz.toObject();
+  quizObj.questions = quizObj.questions.map((q: Record<string, unknown>) => {
+    const stripped = { ...q };
+    delete stripped.answer;
+    delete stripped.correctAnswer;
+    delete stripped.answers;
+    return stripped;
+  });
+
+  res.json({ success: true, data: quizObj, message: "Quiz retrieved successfully" });
 });
 
 router.post("/", authMiddleware, async (req: Request, res: Response) => {
@@ -54,6 +64,60 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
   }
 
   res.json({ success: true, data: quiz, message: "Quiz updated successfully" });
+});
+
+router.put("/:id/winners", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { winners, showWinners } = req.body;
+    const update: Record<string, unknown> = {};
+    if (winners !== undefined) update.winners = winners;
+    if (showWinners !== undefined) update.showWinners = showWinners;
+
+    const quiz = await Quiz.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+
+    if (!quiz) {
+      res.status(404).json({ success: false, data: null, message: "Quiz not found" });
+      return;
+    }
+
+    if (winners !== undefined) {
+      await Submission.updateMany(
+        { quizId: req.params.id, _id: { $in: winners } },
+        { $set: { isWinner: true } }
+      );
+      await Submission.updateMany(
+        { quizId: req.params.id, _id: { $nin: winners } },
+        { $set: { isWinner: false } }
+      );
+    }
+
+    res.json({ success: true, data: quiz, message: "Winners updated successfully" });
+  } catch {
+    res.status(500).json({ success: false, data: null, message: "Failed to update winners" });
+  }
+});
+
+router.get("/:id/winners", async (req: Request, res: Response) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id).populate({
+      path: "winners",
+      select: "memberOmjCard memberSnapshot submittedAt",
+    });
+
+    if (!quiz) {
+      res.status(404).json({ success: false, data: null, message: "Quiz not found" });
+      return;
+    }
+
+    if (!quiz.showWinners) {
+      res.json({ success: true, data: [], message: "Winners not yet announced" });
+      return;
+    }
+
+    res.json({ success: true, data: quiz.winners, message: "Winners retrieved successfully" });
+  } catch {
+    res.status(500).json({ success: false, data: null, message: "Failed to get winners" });
+  }
 });
 
 router.delete("/:id", authMiddleware, async (req: Request, res: Response) => {

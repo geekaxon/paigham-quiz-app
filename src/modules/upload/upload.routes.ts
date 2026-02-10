@@ -51,4 +51,36 @@ router.post("/pdf", authMiddleware, (req: Request, res: Response) => {
   });
 });
 
+const imageUpload = multer({
+  storage,
+  limits: { fileSize: 200 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (["image/jpeg", "image/png", "image/gif", "image/webp"].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files (JPEG, PNG, GIF, WebP) are allowed"));
+    }
+  },
+});
+
+router.post("/image", authMiddleware, (req: Request, res: Response) => {
+  imageUpload.single("file")(req, res, (err) => {
+    if (err) {
+      const message = err instanceof multer.MulterError
+        ? err.code === "LIMIT_FILE_SIZE" ? "File too large (max 200MB)" : err.message
+        : err.message || "Upload failed";
+      res.status(400).json({ success: false, data: null, message });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ success: false, data: null, message: "No file uploaded" });
+      return;
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ success: true, data: { url: fileUrl }, message: "Image uploaded successfully" });
+  });
+});
+
 export default router;

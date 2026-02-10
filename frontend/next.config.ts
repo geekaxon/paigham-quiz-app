@@ -5,6 +5,7 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_UR
 const nextConfig: NextConfig = {
   reactCompiler: true,
   allowedDevOrigins: ["*.pike.replit.dev", "*.replit.dev"],
+  experimental: { serverActions: { bodySizeLimit: '200mb' } },
   async rewrites() {
     return [
       {

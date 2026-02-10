@@ -70,12 +70,22 @@ export interface Quiz {
   startDate: string;
   endDate: string;
   questions: Question[];
+  quizImageUrl?: string;
+  winners?: string[];
+  showWinners?: boolean;
 }
 
 export interface PopulatedQuiz {
   _id: string;
   title: string;
   paighamId: Paigham | null;
+}
+
+export interface SimilarityScore {
+  questionIndex: number;
+  similarity: number;
+  expectedAnswer: string;
+  userAnswer: string;
 }
 
 export interface Submission {
@@ -85,6 +95,7 @@ export interface Submission {
   memberSnapshot: Record<string, unknown>;
   answers: Record<string, unknown>[];
   submittedAt: string;
+  similarityScores?: SimilarityScore[];
 }
 
 export interface Stats {
@@ -166,6 +177,14 @@ export const quizApi = {
   },
   delete: async (id: string) => {
     const res = await api.delete<ApiResponse<null>>(`/quiz/${id}`);
+    return res.data;
+  },
+  updateWinners: async (id: string, data: { winners?: string[]; showWinners?: boolean }) => {
+    const res = await api.put<ApiResponse<Quiz>>(`/quiz/${id}/winners`, data);
+    return res.data;
+  },
+  getWinners: async (id: string) => {
+    const res = await api.get<ApiResponse<Record<string, unknown>[]>>(`/quiz/${id}/winners`);
     return res.data;
   },
 };

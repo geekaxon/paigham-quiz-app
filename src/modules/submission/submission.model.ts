@@ -6,6 +6,7 @@ export interface ISubmission extends Document {
   memberSnapshot: Record<string, unknown>;
   answers: Record<string, unknown>[];
   submittedAt: Date;
+  isWinner: boolean;
 }
 
 const submissionSchema = new Schema<ISubmission>({
@@ -14,6 +15,7 @@ const submissionSchema = new Schema<ISubmission>({
   memberSnapshot: { type: Schema.Types.Mixed, required: true },
   answers: { type: [{ type: Schema.Types.Mixed }], required: true },
   submittedAt: { type: Date, default: Date.now, required: true },
+  isWinner: { type: Boolean, default: false },
 });
 
 submissionSchema.index({ quizId: 1, memberOmjCard: 1 }, { unique: true });

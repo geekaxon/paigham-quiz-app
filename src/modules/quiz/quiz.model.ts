@@ -8,7 +8,10 @@ export interface IQuiz extends Document {
   startDate: Date;
   endDate: Date;
   resultPaighamId?: Types.ObjectId;
+  quizImageUrl?: string;
   questions: Record<string, unknown>[];
+  winners: Types.ObjectId[];
+  showWinners: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,7 +25,10 @@ const quizSchema = new Schema<IQuiz>(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     resultPaighamId: { type: Schema.Types.ObjectId, ref: "Paigham" },
+    quizImageUrl: { type: String },
     questions: { type: [{ type: Schema.Types.Mixed }], required: true },
+    winners: [{ type: Schema.Types.ObjectId, ref: "Submission" }],
+    showWinners: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

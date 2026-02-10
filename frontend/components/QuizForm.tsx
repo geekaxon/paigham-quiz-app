@@ -28,6 +28,7 @@ interface Quiz {
   startDate: string;
   endDate: string;
   questions: Question[];
+  quizImageUrl?: string;
 }
 
 interface QuizFormProps {
@@ -42,6 +43,8 @@ const QUESTION_TYPES = [
   { value: "word_search", label: "Word Search" },
   { value: "translate", label: "Translate" },
   { value: "image", label: "Image Question" },
+  { value: "question_answer", label: "Question & Answer" },
+  { value: "fill_blanks", label: "Fill in the Blanks" },
 ];
 
 function emptyQuestion(type: string): Question {
@@ -49,11 +52,15 @@ function emptyQuestion(type: string): Question {
     case "multiple_choice":
       return { type, question: "", options: ["", "", "", ""], correctAnswer: 0 };
     case "word_search":
-      return { type, clue: "", answer: "" };
+      return { type, clue: "", wordCount: 1, answers: [""] };
     case "translate":
       return { type, sourceText: "", sourceLanguage: "Arabic", targetLanguage: "English", answer: "" };
     case "image":
       return { type, imageUrl: "", question: "", answer: "" };
+    case "question_answer":
+      return { type, question: "", answer: "" };
+    case "fill_blanks":
+      return { type, sentence: "", blanks: [""], answer: "" };
     default:
       return { type, question: "", answer: "" };
   }
@@ -71,8 +78,12 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [expandedQ, setExpandedQ] = useState<number | null>(null);
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [quizImageUrl, setQuizImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const typeMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement;
@@ -83,6 +94,16 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
     return () => {
       previousFocusRef.current?.focus();
     };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target as Node)) {
+        setShowTypeMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleKeyDown = useCallback(
@@ -136,6 +157,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
       setStartDate(quiz.startDate.split("T")[0]);
       setEndDate(quiz.endDate.split("T")[0]);
       setQuestions(quiz.questions || []);
+      setQuizImageUrl(quiz.quizImageUrl || "");
       if (quiz.questions?.length > 0) setExpandedQ(0);
     } else {
       setTitle("");
@@ -145,6 +167,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
       setStartDate("");
       setEndDate("");
       setQuestions([]);
+      setQuizImageUrl("");
       setExpandedQ(null);
     }
   }, [quiz]);
@@ -153,6 +176,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
     const newQ = emptyQuestion(type);
     setQuestions([...questions, newQ]);
     setExpandedQ(questions.length);
+    setShowTypeMenu(false);
   };
 
   const removeQuestion = (index: number) => {
@@ -206,6 +230,28 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
     setExpandedQ(newIndex);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await api.post("/upload/image", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data.success) {
+        setQuizImageUrl(res.data.data.url);
+      } else {
+        setError(res.data.message || "Image upload failed");
+      }
+    } catch {
+      setError("Failed to upload image");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
@@ -216,7 +262,14 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
 
     setSaving(true);
     try {
-      const payload = { title, description, paighamId, quizTypeId, startDate, endDate, questions };
+      const finalQuestions = questions.map((q) => {
+        if (q.type === "image") {
+          return { ...q, imageUrl: quizImageUrl };
+        }
+        return q;
+      });
+
+      const payload = { title, description, paighamId, quizTypeId, startDate, endDate, questions: finalQuestions, quizImageUrl };
 
       if (quiz) {
         await api.put(`/quiz/${quiz._id}`, payload);
@@ -241,8 +294,18 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
       case "word_search": return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
       case "translate": return "bg-primary-50 text-primary dark:bg-primary-400/10 dark:text-primary-400";
       case "image": return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+      case "question_answer": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+      case "fill_blanks": return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
       default: return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
     }
+  };
+
+  const updateWordSearchAnswer = (qIndex: number, answerIndex: number, value: string) => {
+    const updated = [...questions];
+    const answers = [...((updated[qIndex].answers as string[]) || [])];
+    answers[answerIndex] = value;
+    updated[qIndex] = { ...updated[qIndex], answers };
+    setQuestions(updated);
   };
 
   const renderQuestionEditor = (q: Question, index: number) => {
@@ -316,7 +379,9 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
           </div>
         );
 
-      case "word_search":
+      case "word_search": {
+        const wordCount = (q.wordCount as number) || 1;
+        const answersArr = (q.answers as string[]) || [""];
         return (
           <div className="space-y-4">
             <div>
@@ -330,17 +395,42 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Answer</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Number of words to find</label>
               <input
-                type="text"
-                value={(q.answer as string) || ""}
-                onChange={(e) => updateQuestion(index, "answer", e.target.value)}
-                placeholder="Enter the word to find"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
+                type="number"
+                min={1}
+                max={20}
+                value={wordCount}
+                onChange={(e) => {
+                  const newCount = Math.max(1, parseInt(e.target.value) || 1);
+                  const currentAnswers = [...answersArr];
+                  while (currentAnswers.length < newCount) currentAnswers.push("");
+                  const trimmed = currentAnswers.slice(0, newCount);
+                  const updated = [...questions];
+                  updated[index] = { ...updated[index], wordCount: newCount, answers: trimmed };
+                  setQuestions(updated);
+                }}
+                className="w-24 rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Expected Answers</label>
+              <div className="space-y-2">
+                {Array.from({ length: wordCount }).map((_, wIdx) => (
+                  <input
+                    key={wIdx}
+                    type="text"
+                    value={answersArr[wIdx] || ""}
+                    onChange={(e) => updateWordSearchAnswer(index, wIdx, e.target.value)}
+                    placeholder={`Word ${wIdx + 1}`}
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
+                  />
+                ))}
+              </div>
             </div>
           </div>
         );
+      }
 
       case "translate":
         return (
@@ -393,20 +483,15 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
       case "image":
         return (
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Image URL</label>
-              <input
-                type="url"
-                value={(q.imageUrl as string) || ""}
-                onChange={(e) => updateQuestion(index, "imageUrl", e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
-              />
-              {(q.imageUrl as string) && (
+            <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                This question will use the Quiz Image uploaded above. Make sure to upload a quiz image before saving.
+              </p>
+              {quizImageUrl && (
                 <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden">
                   <img
-                    src={q.imageUrl as string}
-                    alt="Preview"
+                    src={quizImageUrl}
+                    alt="Quiz image preview"
                     className="max-h-32 w-auto object-contain mx-auto"
                     onError={(e) => (e.currentTarget.style.display = "none")}
                   />
@@ -430,6 +515,58 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                 value={(q.answer as string) || ""}
                 onChange={(e) => updateQuestion(index, "answer", e.target.value)}
                 placeholder="Expected answer"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+          </div>
+        );
+
+      case "question_answer":
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Question</label>
+              <input
+                type="text"
+                value={(q.question as string) || ""}
+                onChange={(e) => updateQuestion(index, "question", e.target.value)}
+                placeholder="Enter the question"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Expected Answer</label>
+              <textarea
+                value={(q.answer as string) || ""}
+                onChange={(e) => updateQuestion(index, "answer", e.target.value)}
+                placeholder="Enter the expected answer"
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent resize-none"
+              />
+            </div>
+          </div>
+        );
+
+      case "fill_blanks":
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Sentence (use ___ for blanks)</label>
+              <input
+                type="text"
+                value={(q.sentence as string) || ""}
+                onChange={(e) => updateQuestion(index, "sentence", e.target.value)}
+                placeholder="The capital of France is ___"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Expected Answer</label>
+              <input
+                type="text"
+                value={(q.answer as string) || ""}
+                onChange={(e) => updateQuestion(index, "answer", e.target.value)}
+                placeholder="Enter the expected answer for the blank"
                 className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
               />
             </div>
@@ -548,13 +685,52 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quiz Image</label>
+            <div className="flex items-center gap-3">
+              <label className="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {uploadingImage ? "Uploading..." : "Upload Image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  disabled={uploadingImage}
+                />
+              </label>
+              {quizImageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setQuizImageUrl("")}
+                  className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            {quizImageUrl && (
+              <div className="mt-2 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <img
+                  src={quizImageUrl}
+                  alt="Quiz image"
+                  className="max-h-40 w-auto object-contain mx-auto"
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-medium text-gray-700">
                 Questions ({questions.length})
               </label>
-              <div className="relative group">
+              <div className="relative" ref={typeMenuRef}>
                 <button
                   type="button"
+                  onClick={() => setShowTypeMenu(!showTypeMenu)}
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 transition-colors duration-200"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -562,18 +738,20 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                   </svg>
                   Add Question
                 </button>
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 hidden group-hover:block z-20">
-                  {QUESTION_TYPES.map((qt) => (
-                    <button
-                      key={qt.value}
-                      type="button"
-                      onClick={() => addQuestion(qt.value)}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      {qt.label}
-                    </button>
-                  ))}
-                </div>
+                {showTypeMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-[#1A1128] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20">
+                    {QUESTION_TYPES.map((qt) => (
+                      <button
+                        key={qt.value}
+                        type="button"
+                        onClick={() => addQuestion(qt.value)}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        {qt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -583,7 +761,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p className="text-sm text-gray-500">No questions added yet</p>
-                <p className="text-xs text-gray-400 mt-1">Hover &quot;Add Question&quot; above to get started</p>
+                <p className="text-xs text-gray-400 mt-1">Click &quot;Add Question&quot; above to get started</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -600,7 +778,7 @@ export default function QuizForm({ quiz, paighams, onClose, onSaved }: QuizFormP
                         {getTypeLabel(q.type)}
                       </span>
                       <span className="flex-1 text-sm text-gray-700 truncate">
-                        {(q.question as string) || (q.clue as string) || (q.sourceText as string) || "Untitled question"}
+                        {(q.question as string) || (q.clue as string) || (q.sourceText as string) || (q.sentence as string) || "Untitled question"}
                       </span>
                       <div className="flex items-center gap-1">
                         <button
