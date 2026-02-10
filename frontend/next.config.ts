@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+const backendPort = process.env.BACKEND_PORT || "3001";
+const backendUrl = `http://localhost:${backendPort}`;
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   allowedDevOrigins: ["*.pike.replit.dev", "*.replit.dev"],
@@ -7,11 +10,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:3001/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
       {
         source: "/uploads/:path*",
-        destination: "http://localhost:3001/uploads/:path*",
+        destination: `${backendUrl}/uploads/:path*`,
       },
     ];
   },
