@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 200 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === "application/pdf") {
       cb(null, true);
@@ -35,7 +35,7 @@ router.post("/pdf", authMiddleware, (req: Request, res: Response) => {
   upload.single("file")(req, res, (err) => {
     if (err) {
       const message = err instanceof multer.MulterError
-        ? err.code === "LIMIT_FILE_SIZE" ? "File too large (max 10MB)" : err.message
+        ? err.code === "LIMIT_FILE_SIZE" ? "File too large (max 200MB)" : err.message
         : err.message || "Upload failed";
       res.status(400).json({ success: false, data: null, message });
       return;
