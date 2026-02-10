@@ -30,9 +30,11 @@ Full-stack application with a Node.js/Express backend and Next.js frontend.
 - `frontend/src/app/paigham/page.tsx` - Public bookshelf-style display of all Paigham magazines with download button and open-in-new-tab button per card.
 - `frontend/src/app/quiz/[quizId]/page.tsx` - Public quiz-taking page with OMJ card verification, dynamic question rendering (multiple choice, word search, translate, image, guess_who with blurred image reveal, text), countdown timer, required-field validation, and smooth submit states (loading/success/error/retry).
 - `frontend/components/Notification.tsx` - Reusable notification component (success/error/info) with auto-dismiss (3-5s), progress bar, NotificationContainer for stacking.
+- `frontend/components/Toast.tsx` - Global toast notification system using context API (useToast hook), renders via NotificationContainer, integrated into QueryProvider.
+- `frontend/components/ConfirmModal.tsx` - Reusable confirmation dialog with focus trapping, Escape/Tab keyboard support, loading state, and return focus management. Used for all delete actions.
 - `frontend/components/LoadingSpinner.tsx` - Reusable loading spinner with sm/md/lg/xl sizes, fullPage mode, overlay mode, InlineLoading variant.
 - `frontend/services/api.ts` - Centralized API service layer with Axios instance, JWT interceptor, typed interfaces (Paigham, Quiz, Submission, Stats, Member), and exported API functions (adminApi, statsApi, paighamApi, quizApi, submissionApi, memberApi) used by all pages.
-- `frontend/components/QueryProvider.tsx` - React Query provider wrapper.
+- `frontend/components/QueryProvider.tsx` - React Query provider wrapper with Toast context provider.
 - API calls proxied to backend via Next.js rewrites (`/api/*` and `/uploads/*` -> `localhost:3001`).
 
 ## Tech Stack
