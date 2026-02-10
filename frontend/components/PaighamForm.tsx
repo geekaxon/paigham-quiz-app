@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, FormEvent, DragEvent } from "react";
-import api, { type Paigham } from "../services/api";
+import api, { getUploadUrl, type Paigham } from "../services/api";
 
 interface PaighamFormProps {
   paigham: Paigham | null;
@@ -268,7 +268,7 @@ export default function PaighamForm({ paigham, onClose, onSaved }: PaighamFormPr
                     </p>
                     <div className="flex items-center gap-3 mt-2">
                       <a
-                        href={pdfUrl}
+                        href={getUploadUrl(pdfUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 transition-colors duration-200"

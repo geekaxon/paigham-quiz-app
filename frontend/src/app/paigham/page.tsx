@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { paighamApi, type Paigham } from "../../../services/api";
+import { paighamApi, getUploadUrl, type Paigham } from "../../../services/api";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 
 export default function PaighamPublicPage() {
@@ -119,7 +119,7 @@ export default function PaighamPublicPage() {
 
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       <a
-                        href={p.pdfUrl}
+                        href={getUploadUrl(p.pdfUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-white/90 dark:bg-gray-900/90 rounded-full p-2.5 shadow-lg hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 hover:scale-110"
@@ -131,7 +131,7 @@ export default function PaighamPublicPage() {
                         </svg>
                       </a>
                       <button
-                        onClick={() => handleDownload(p.pdfUrl, p.title)}
+                        onClick={() => handleDownload(getUploadUrl(p.pdfUrl), p.title)}
                         className="bg-white/90 dark:bg-gray-900/90 rounded-full p-2.5 shadow-lg hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 hover:scale-110"
                         aria-label={`Download ${p.title} PDF`}
                         title="Download PDF"
@@ -150,7 +150,7 @@ export default function PaighamPublicPage() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{formatDate(p.publicationDate)}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <a
-                        href={p.pdfUrl}
+                        href={getUploadUrl(p.pdfUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-xs font-medium text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 transition-colors duration-200"
@@ -164,7 +164,7 @@ export default function PaighamPublicPage() {
                       </a>
                       <span className="text-gray-300 dark:text-gray-600">|</span>
                       <button
-                        onClick={() => handleDownload(p.pdfUrl, p.title)}
+                        onClick={() => handleDownload(getUploadUrl(p.pdfUrl), p.title)}
                         className="flex items-center gap-1 text-xs font-medium text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 transition-colors duration-200"
                         aria-label={`Download ${p.title}`}
                       >

@@ -1,11 +1,21 @@
 import axios from "axios";
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
+const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "/api",
+  baseURL: apiBaseUrl,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+export function getUploadUrl(path: string): string {
+  if (backendBaseUrl && path.startsWith("/")) {
+    return `${backendBaseUrl}${path}`;
+  }
+  return path;
+}
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {

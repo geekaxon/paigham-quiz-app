@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { paighamApi, type Paigham } from "../../../../services/api";
+import { paighamApi, getUploadUrl, type Paigham } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import PaighamForm from "../../../../components/PaighamForm";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
@@ -253,7 +253,7 @@ export default function PaighamPage() {
                       </td>
                       <td className="px-5 py-4">
                         <a
-                          href={p.pdfUrl}
+                          href={getUploadUrl(p.pdfUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-sm text-primary dark:text-primary-400 hover:text-primary-light dark:hover:text-primary-300 font-medium transition-colors duration-200"
@@ -318,7 +318,7 @@ export default function PaighamPage() {
                 </div>
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
                   <a
-                    href={p.pdfUrl}
+                    href={getUploadUrl(p.pdfUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary dark:text-primary-400 border border-primary-100 dark:border-primary-200 hover:bg-primary-50 dark:hover:bg-primary-50/50 transition-colors"
