@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 
-const uploadDir = path.join(__dirname, "../../../uploads");
+const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
