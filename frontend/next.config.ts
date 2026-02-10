@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  allowedDevOrigins: ["*.pike.replit.dev"],
+  allowedDevOrigins: ["*.pike.replit.dev", "*.replit.dev"],
   async rewrites() {
     return [
       {

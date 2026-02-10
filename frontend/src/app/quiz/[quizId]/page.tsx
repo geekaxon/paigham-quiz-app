@@ -221,6 +221,34 @@ export default function QuizPage() {
   const [step, setStep] = useState<"identify" | "quiz" | "done">("identify");
 
   const firstErrorRef = useRef<HTMLDivElement | null>(null);
+  const storageKey = `quiz_answers_${quizId}`;
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.answers && typeof parsed.answers === "object") {
+          const restored: Record<number, unknown> = {};
+          Object.entries(parsed.answers).forEach(([k, v]) => {
+            restored[Number(k)] = v;
+          });
+          setAnswers(restored);
+        }
+        if (parsed.omjCard) setOmjCard(parsed.omjCard);
+      }
+    } catch { /* ignore corrupted localStorage */ }
+  }, [storageKey]);
+
+  const updateAnswers = useCallback((updater: (prev: Record<number, unknown>) => Record<number, unknown>) => {
+    setAnswers((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ answers: next, omjCard }));
+      } catch { /* quota exceeded, ignore */ }
+      return next;
+    });
+  }, [storageKey, omjCard]);
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -279,13 +307,13 @@ export default function QuizPage() {
   };
 
   const updateAnswer = useCallback((index: number, value: unknown) => {
-    setAnswers((prev) => ({ ...prev, [index]: value }));
+    updateAnswers((prev) => ({ ...prev, [index]: value }));
     setValidationErrors((prev) => {
       const next = { ...prev };
       delete next[index];
       return next;
     });
-  }, []);
+  }, [updateAnswers]);
 
   const revealImage = useCallback((index: number) => {
     setRevealedImages((prev) => ({ ...prev, [index]: true }));
@@ -349,6 +377,7 @@ export default function QuizPage() {
       if (res.data.success) {
         setSubmitState("success");
         setStep("done");
+        try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
       } else {
         setSubmitState("error");
         setNotification({ type: "error", message: res.data.message || "Submission failed" });
@@ -724,7 +753,7 @@ export default function QuizPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setStep("identify"); setMember(null); setOmjCard(""); setAnswers({}); setValidationErrors({}); setRevealedImages({}); }}
+                  onClick={() => { setStep("identify"); setMember(null); setOmjCard(""); updateAnswers(() => ({})); setValidationErrors({}); setRevealedImages({}); }}
                   className="ml-auto text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
                   aria-label="Change member"
                 >

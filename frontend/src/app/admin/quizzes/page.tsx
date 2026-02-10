@@ -7,7 +7,8 @@ import { quizApi, paighamApi, type Quiz, type Paigham } from "../../../../servic
 import Layout from "../../../../components/Layout";
 import QuizForm from "../../../../components/QuizForm";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
-import Notification from "../../../../components/Notification";
+import ConfirmModal from "../../../../components/ConfirmModal";
+import { useToast } from "../../../../components/Toast";
 
 interface GroupedQuizzes {
   paigham: Paigham;
@@ -17,11 +18,12 @@ interface GroupedQuizzes {
 export default function QuizzesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
-  const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -50,8 +52,13 @@ export default function QuizzesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quizzes"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
+      toast.success("Quiz deleted successfully");
+      setDeleteTarget(null);
     },
-    onError: () => setError("Failed to delete quiz"),
+    onError: () => {
+      toast.error("Failed to delete quiz");
+      setDeleteTarget(null);
+    },
   });
 
   if (!token) {
@@ -61,9 +68,12 @@ export default function QuizzesPage() {
 
   const loading = quizzesLoading;
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this quiz?")) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: string, title: string) => {
+    setDeleteTarget({ id, title });
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
   };
 
   const toggleGroup = (paighamId: string) => {
@@ -165,18 +175,14 @@ export default function QuizzesPage() {
               </svg>
             </button>
             <button
-              onClick={() => handleDelete(quiz._id)}
+              onClick={() => handleDelete(quiz._id, quiz.title)}
               disabled={deleteMutation.isPending}
               className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
               aria-label={`Delete ${quiz.title}`}
             >
-              {deleteMutation.isPending ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              )}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </button>
           </div>
         </td>
@@ -223,12 +229,6 @@ export default function QuizzesPage() {
               className="w-full sm:w-72 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1A1128] pl-10 pr-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-400 focus:border-transparent transition-all duration-200"
             />
           </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4">
-          <Notification type="error" message={error} onClose={() => setError("")} duration={0} />
         </div>
       )}
 
@@ -342,9 +342,20 @@ export default function QuizzesPage() {
             setEditingQuiz(null);
             queryClient.invalidateQueries({ queryKey: ["quizzes"] });
             queryClient.invalidateQueries({ queryKey: ["stats"] });
+            toast.success(editingQuiz ? "Quiz updated successfully" : "Quiz created successfully");
           }}
         />
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Quiz"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"? This will also remove all related submissions.`}
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </Layout>
   );
 }

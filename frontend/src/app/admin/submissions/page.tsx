@@ -6,7 +6,8 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { submissionApi, paighamApi, type Submission, type Paigham } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
-import Notification from "../../../../components/Notification";
+import ConfirmModal from "../../../../components/ConfirmModal";
+import { useToast } from "../../../../components/Toast";
 
 type SortField = "member" | "omjCard" | "quiz" | "paigham" | "answers" | "date";
 type SortDir = "asc" | "desc";
@@ -16,6 +17,7 @@ const PAGE_SIZE = 10;
 export default function SubmissionsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [page, setPage] = useState(1);
   const [filterPaigham, setFilterPaigham] = useState("");
   const [filterQuiz, setFilterQuiz] = useState("");
@@ -25,8 +27,7 @@ export default function SubmissionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editOmjCard, setEditOmjCard] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -56,10 +57,10 @@ export default function SubmissionsPage() {
       submissionApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
-      setSuccess("Submission updated");
+      toast.success("Submission updated");
       setEditingId(null);
     },
-    onError: () => setError("Failed to update submission"),
+    onError: () => toast.error("Failed to update submission"),
   });
 
   const deleteMutation = useMutation({
@@ -67,9 +68,13 @@ export default function SubmissionsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
-      setSuccess("Submission deleted");
+      toast.success("Submission deleted");
+      setDeleteTarget(null);
     },
-    onError: () => setError("Failed to delete submission"),
+    onError: () => {
+      toast.error("Failed to delete submission");
+      setDeleteTarget(null);
+    },
   });
 
   if (!token) {
@@ -201,9 +206,12 @@ export default function SubmissionsPage() {
     updateMutation.mutate({ id: editingId, data: { memberOmjCard: editOmjCard.trim() } });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this submission?")) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: string) => {
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) deleteMutation.mutate(deleteTarget);
   };
 
   const formatDate = (dateStr: string) =>
@@ -388,18 +396,6 @@ export default function SubmissionsPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4">
-          <Notification type="error" message={error} onClose={() => setError("")} />
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4">
-          <Notification type="success" message={success} onClose={() => setSuccess("")} />
-        </div>
-      )}
-
       {loading ? (
         <LoadingSpinner size="lg" label="Loading submissions..." fullPage />
       ) : sorted.length === 0 ? (
@@ -467,7 +463,7 @@ export default function SubmissionsPage() {
                             <button
                               onClick={saveEdit}
                               disabled={updateMutation.isPending}
-                              className="p-1 rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                              className="p-1 rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
                               aria-label="Save"
                             >
                               {updateMutation.isPending ? (
@@ -514,7 +510,7 @@ export default function SubmissionsPage() {
                             onClick={() => startEdit(s)}
                             disabled={editingId === s._id}
                             className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-50/50 transition-all duration-200 disabled:opacity-50"
-                            aria-label={`Edit ${getMemberName(s)}`}
+                            aria-label={`Edit OMJ card for ${getMemberName(s)}`}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -524,15 +520,11 @@ export default function SubmissionsPage() {
                             onClick={() => handleDelete(s._id)}
                             disabled={deleteMutation.isPending}
                             className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
-                            aria-label={`Delete submission by ${getMemberName(s)}`}
+                            aria-label={`Delete submission from ${getMemberName(s)}`}
                           >
-                            {deleteMutation.isPending ? (
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            )}
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         </div>
                       </td>
@@ -547,104 +539,63 @@ export default function SubmissionsPage() {
             {paginated.map((s) => (
               <div
                 key={s._id}
-                className="bg-white dark:bg-[#1A1128] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden"
+                className="bg-white dark:bg-[#1A1128] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm"
               >
                 <button
                   onClick={() => setExpandedRow(expandedRow === s._id ? null : s._id)}
-                  className="w-full px-4 py-3 flex items-center justify-between text-left"
+                  className="w-full text-left p-4"
                   aria-expanded={expandedRow === s._id}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{getMemberName(s)}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{getMemberName(s)}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{getQuizTitle(s)}</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-3">
                       <span className="inline-flex items-center text-xs font-mono font-semibold px-2 py-0.5 rounded bg-primary-50 text-primary dark:bg-primary-50/50 dark:text-primary-400">
                         {s.memberOmjCard}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(s.submittedAt)}</span>
+                      <svg
+                        className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expandedRow === s._id ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
                     </div>
                   </div>
-                  <svg
-                    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ml-2 flex-shrink-0 ${expandedRow === s._id ? "rotate-180" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
                 </button>
-
                 {expandedRow === s._id && (
-                  <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800 pt-3 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Quiz</p>
-                        <p className="text-gray-900 dark:text-white">{getQuizTitle(s)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Paigham</p>
-                        <p className="text-gray-900 dark:text-white">{getPaighamTitle(s)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Answers</p>
-                        <p className="text-gray-900 dark:text-white">{s.answers?.length || 0}</p>
-                      </div>
+                  <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Paigham</span>
+                      <span className="text-gray-900 dark:text-white">{getPaighamTitle(s)}</span>
                     </div>
-
-                    {editingId === s._id ? (
-                      <div className="flex items-center gap-2 pt-1">
-                        <input
-                          type="text"
-                          value={editOmjCard}
-                          onChange={(e) => setEditOmjCard(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit();
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                          className="flex-1 rounded border border-primary dark:border-primary-400 bg-white dark:bg-[#0F0A1A] px-2.5 py-1.5 text-sm font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                          aria-label="Edit OMJ card number"
-                        />
-                        <button
-                          onClick={saveEdit}
-                          disabled={updateMutation.isPending}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                        >
-                          {updateMutation.isPending ? "..." : "Save"}
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          onClick={() => startEdit(s)}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(s._id)}
-                          disabled={deleteMutation.isPending}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-                        >
-                          {deleteMutation.isPending ? (
-                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
-                          ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          )}
-                          Delete
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Answers</span>
+                      <span className="text-gray-900 dark:text-white">{s.answers?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Date</span>
+                      <span className="text-gray-900 dark:text-white">{formatDate(s.submittedAt)}</span>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => startEdit(s)}
+                        className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        Edit OMJ
+                      </button>
+                      <button
+                        onClick={() => handleDelete(s._id)}
+                        disabled={deleteMutation.isPending}
+                        className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -670,9 +621,7 @@ export default function SubmissionsPage() {
                   .map((p, idx, arr) => (
                     <span key={p} className="flex items-center">
                       {idx > 0 && arr[idx - 1] !== p - 1 && (
-                        <span className="px-1 text-gray-400" aria-hidden="true">
-                          ...
-                        </span>
+                        <span className="px-1 text-gray-400" aria-hidden="true">...</span>
                       )}
                       <button
                         onClick={() => setPage(p)}
@@ -700,6 +649,16 @@ export default function SubmissionsPage() {
           )}
         </>
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Submission"
+        message="Are you sure you want to delete this submission? This action cannot be undone."
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </Layout>
   );
 }

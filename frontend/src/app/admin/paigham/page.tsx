@@ -7,7 +7,8 @@ import { paighamApi, type Paigham } from "../../../../services/api";
 import Layout from "../../../../components/Layout";
 import PaighamForm from "../../../../components/PaighamForm";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
-import Notification from "../../../../components/Notification";
+import ConfirmModal from "../../../../components/ConfirmModal";
+import { useToast } from "../../../../components/Toast";
 
 type SortField = "title" | "date";
 type SortDir = "asc" | "desc";
@@ -17,13 +18,14 @@ const PAGE_SIZE = 8;
 export default function PaighamPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingPaigham, setEditingPaigham] = useState<Paigham | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -42,8 +44,13 @@ export default function PaighamPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["paighams"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
+      toast.success("Paigham deleted successfully");
+      setDeleteTarget(null);
     },
-    onError: () => setError("Failed to delete Paigham"),
+    onError: () => {
+      toast.error("Failed to delete Paigham");
+      setDeleteTarget(null);
+    },
   });
 
   if (!token) {
@@ -51,9 +58,12 @@ export default function PaighamPage() {
     return null;
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this Paigham?")) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: string, title: string) => {
+    setDeleteTarget({ id, title });
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
   };
 
   const filtered = useMemo(() => {
@@ -175,12 +185,6 @@ export default function PaighamPage() {
         </div>
       )}
 
-      {error && (
-        <div className="mb-4">
-          <Notification type="error" message={error} onClose={() => setError("")} duration={0} />
-        </div>
-      )}
-
       {loading ? (
         <LoadingSpinner size="lg" label="Loading Paighams..." fullPage />
       ) : sorted.length === 0 ? (
@@ -276,18 +280,14 @@ export default function PaighamPage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => handleDelete(p._id)}
+                            onClick={() => handleDelete(p._id, p.title)}
                             disabled={deleteMutation.isPending}
                             className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
                             aria-label={`Delete ${p.title}`}
                           >
-                            {deleteMutation.isPending ? (
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            )}
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         </div>
                       </td>
@@ -339,12 +339,12 @@ export default function PaighamPage() {
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(p._id)}
+                    onClick={() => handleDelete(p._id, p.title)}
                     disabled={deleteMutation.isPending}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     aria-label={`Delete ${p.title}`}
                   >
-                    {deleteMutation.isPending ? "..." : "Delete"}
+                    Delete
                   </button>
                 </div>
               </div>
@@ -411,9 +411,20 @@ export default function PaighamPage() {
             setEditingPaigham(null);
             queryClient.invalidateQueries({ queryKey: ["paighams"] });
             queryClient.invalidateQueries({ queryKey: ["stats"] });
+            toast.success(editingPaigham ? "Paigham updated successfully" : "Paigham created successfully");
           }}
         />
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Paigham"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone and will also remove any associated quizzes and submissions.`}
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </Layout>
   );
 }
